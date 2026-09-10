@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '@/lib/apiClient'
 import { useAuth } from '@/hooks/useAuth'
 import type { Usuario } from '@/types'
@@ -15,5 +15,19 @@ export function useMe() {
       if (error instanceof ApiError && error.status === 404) return false
       return failureCount < 2
     },
+  })
+}
+
+export type EditarPerfilInput = Partial<{
+  nombre: string
+  moneda_principal: string
+  zona_horaria: string
+}>
+
+export function useActualizarPerfil() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (cambios: EditarPerfilInput) => api.patch<{ usuario: Usuario }>('/me', cambios),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['me'] }),
   })
 }

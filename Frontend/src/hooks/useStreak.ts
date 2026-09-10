@@ -1,9 +1,9 @@
 import { useMemo } from 'react'
-import { useMovimientos } from './useMovimientos'
+import { useTodosLosMovimientos } from './useMovimientos'
 
 /** Racha de días consecutivos (incluyendo hoy o ayer) con al menos un movimiento registrado. */
 export function useStreak() {
-  const { data: movimientos } = useMovimientos()
+  const { data: movimientos } = useTodosLosMovimientos()
 
   return useMemo(() => {
     if (!movimientos || movimientos.length === 0) return 0

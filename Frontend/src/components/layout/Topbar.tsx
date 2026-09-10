@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Menu, LogOut, Flame, ChevronDown } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Menu, LogOut, Flame, ChevronDown, Settings } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useMe } from '@/hooks/useMe'
 import { useStreak } from '@/hooks/useStreak'
@@ -59,6 +60,14 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
                   className="absolute right-0 top-full z-20 mt-2 w-52 glass-panel rounded-xl bg-bg-raised/95 p-1.5 shadow-[var(--shadow-card)]"
                 >
                   <div className="px-3 py-2 text-xs text-ink-500">{usuario?.email}</div>
+                  <Link
+                    to="/configuracion"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-ink-200 hover:bg-white/8"
+                  >
+                    <Settings className="size-4" />
+                    Configuración
+                  </Link>
                   <button
                     onClick={signOut}
                     className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-coral-400 hover:bg-coral-500/10"

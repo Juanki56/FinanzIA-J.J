@@ -179,3 +179,38 @@ export async function eliminarAsignacion(req: Request, res: Response) {
 
   res.status(204).send();
 }
+
+// agregar a controllers/objetivosAhorro.controller.ts (no reemplaza el archivo, solo agrega esta función al final)
+export async function actualizarAsignacion(req: Request, res: Response) {
+  const { asignacionId } = req.params;
+  const body = req.body ?? {};
+
+  if ('usuario_id' in body || 'objetivo_id' in body || 'cuenta_id' in body) {
+    return res.status(400).json({
+      error: 'usuario_id, objetivo_id y cuenta_id no se pueden modificar. Elimina esta asignación y crea una nueva si necesitas cambiarlos.',
+    });
+  }
+
+  if ('monto_asignado' in body) {
+    const montoNum = Number(body.monto_asignado);
+    if (Number.isNaN(montoNum) || montoNum < 0) {
+      return res.status(400).json({ error: 'monto_asignado debe ser un número mayor o igual a 0' });
+    }
+  }
+
+  const { data, error } = await req.supabase
+    .from('asignaciones_objetivo')
+    .update(body)
+    .eq('id', asignacionId)
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return res.status(404).json({ error: 'Asignación no encontrada' });
+    }
+    return res.status(400).json({ error: 'Error al actualizar la asignación', detalle: error.message });
+  }
+
+  res.json({ asignacion: data });
+}

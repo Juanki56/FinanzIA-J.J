@@ -7,6 +7,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Pagination } from '@/components/ui/Pagination'
 import { MovementFilters, type MovementFiltersState } from '@/components/movements/MovementFilters'
 import { MovementRow } from '@/components/movements/MovementRow'
 import { MovementForm, type MovementFormValues } from '@/components/movements/MovementForm'
@@ -23,9 +24,13 @@ import { notifyError, notifySuccess } from '@/utils/toast'
 import type { Movimiento } from '@/types'
 
 const FILTROS_VACIOS: MovementFiltersState = { cuentaId: '', categoriaId: '', tipo: '', desde: '', hasta: '' }
+const LIMITE_POR_PAGINA = 20
 
 export function MovementsPage() {
-  const { data: movimientos, isLoading: cargandoMovs } = useMovimientos()
+  const [pagina, setPagina] = useState(1)
+  const { data, isLoading: cargandoMovs, isPlaceholderData } = useMovimientos({ pagina, limite: LIMITE_POR_PAGINA })
+  const movimientos = data?.movimientos
+  const paginacion = data?.paginacion
   const { data: cuentas, isLoading: cargandoCuentas } = useCuentas()
   const { data: categorias, isLoading: cargandoCats } = useCategorias()
 
@@ -43,6 +48,11 @@ export function MovementsPage() {
   const cuentaPorId = useMemo(() => new Map((cuentas ?? []).map((c) => [c.id, c])), [cuentas])
   const categoriaPorId = useMemo(() => new Map((categorias ?? []).map((c) => [c.id, c])), [categorias])
 
+  function actualizarFiltros(nuevos: MovementFiltersState) {
+    setFiltros(nuevos)
+    setPagina(1) // los filtros se aplican solo dentro de la página actual, así que volvemos a la 1
+  }
+
   const filtrados = useMemo(() => {
     return (movimientos ?? []).filter((m) => {
       if (filtros.cuentaId && m.cuenta_id !== filtros.cuentaId) return false
@@ -53,6 +63,8 @@ export function MovementsPage() {
       return true
     })
   }, [movimientos, filtros])
+
+  const hayFiltrosActivos = Object.values(filtros).some(Boolean)
 
   function abrirCrear() {
     setEditando(null)
@@ -126,9 +138,14 @@ export function MovementsPage() {
         }
       />
 
-      <Card className="mb-4">
-        <MovementFilters value={filtros} onChange={setFiltros} cuentas={cuentas ?? []} categorias={categorias ?? []} />
+      <Card className="mb-2">
+        <MovementFilters value={filtros} onChange={actualizarFiltros} cuentas={cuentas ?? []} categorias={categorias ?? []} />
       </Card>
+      {hayFiltrosActivos && (
+        <p className="mb-4 text-xs text-ink-500">
+          Los filtros se aplican solo dentro de la página actual de resultados.
+        </p>
+      )}
 
       {cargando ? (
         <Spinner />
@@ -136,7 +153,7 @@ export function MovementsPage() {
         <EmptyState
           icon={<Receipt className="size-6" />}
           title={movimientos?.length ? 'Nada coincide con estos filtros' : 'Todavía no tienes movimientos'}
-          description={movimientos?.length ? 'Prueba ajustando los filtros de arriba.' : 'Registra tu primer ingreso o gasto para empezar.'}
+          description={movimientos?.length ? 'Prueba ajustando los filtros de arriba o cambiando de página.' : 'Registra tu primer ingreso o gasto para empezar.'}
           action={
             !movimientos?.length ? (
               <Button onClick={abrirCrear}>
@@ -147,7 +164,7 @@ export function MovementsPage() {
           }
         />
       ) : (
-        <Card className="divide-y divide-white/5 p-2">
+        <Card className={`divide-y divide-white/5 p-2 transition-opacity ${isPlaceholderData ? 'opacity-60' : ''}`}>
           {filtrados.map((mov) => (
             <MovementRow
               key={mov.id}
@@ -160,6 +177,8 @@ export function MovementsPage() {
           ))}
         </Card>
       )}
+
+      {paginacion && <Pagination paginacion={paginacion} onChange={setPagina} />}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editando ? 'Editar movimiento' : 'Nuevo movimiento'} maxWidth="max-w-xl">
         <MovementForm

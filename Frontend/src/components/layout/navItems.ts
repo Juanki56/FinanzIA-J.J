@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, Wallet, Receipt, ArrowLeftRight, Tags, Target, Trophy, Repeat,
+  LayoutDashboard, Wallet, Receipt, ArrowLeftRight, Tags, Target, Trophy, Repeat, Link2,
 } from 'lucide-react'
 
 export const NAV_ITEMS = [
@@ -11,4 +11,5 @@ export const NAV_ITEMS = [
   { to: '/presupuestos', label: 'Presupuestos', icon: Target },
   { to: '/objetivos', label: 'Objetivos', icon: Trophy },
   { to: '/recurrentes', label: 'Recurrentes', icon: Repeat },
+  { to: '/conexiones', label: 'Conexiones', icon: Link2 },
 ]

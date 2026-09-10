@@ -1,18 +1,32 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/apiClient'
-import type { Movimiento } from '@/types'
+import type { Movimiento, MovimientosPage } from '@/types'
 
-export function useMovimientos(opts?: { incluirEliminados?: boolean }) {
+// El límite máximo que acepta el backend es 200. Lo usamos como "trae todo lo
+// que puedas" para vistas que necesitan el conjunto completo (dashboard,
+// cálculo de racha) en vez de una página paginada para navegar.
+export const LIMITE_MAXIMO_MOVIMIENTOS = 200
+
+export function useMovimientos(opts?: { incluirEliminados?: boolean; pagina?: number; limite?: number }) {
   const incluirEliminados = opts?.incluirEliminados ?? false
+  const pagina = opts?.pagina ?? 1
+  const limite = opts?.limite ?? 20
+
   return useQuery({
-    queryKey: ['movimientos', { incluirEliminados }],
-    queryFn: () =>
-      api
-        .get<{ movimientos: Movimiento[] }>(
-          incluirEliminados ? '/movimientos?incluir_eliminados=true' : '/movimientos'
-        )
-        .then((r) => r.movimientos),
+    queryKey: ['movimientos', { incluirEliminados, pagina, limite }],
+    queryFn: () => {
+      const params = new URLSearchParams({ pagina: String(pagina), limite: String(limite) })
+      if (incluirEliminados) params.set('incluir_eliminados', 'true')
+      return api.get<MovimientosPage>(`/movimientos?${params.toString()}`)
+    },
+    placeholderData: keepPreviousData,
   })
+}
+
+/** Trae movimientos en bloque (hasta el límite máximo del backend), solo el arreglo. */
+export function useTodosLosMovimientos(opts?: { incluirEliminados?: boolean }) {
+  const { data, ...rest } = useMovimientos({ ...opts, pagina: 1, limite: LIMITE_MAXIMO_MOVIMIENTOS })
+  return { ...rest, data: data?.movimientos as Movimiento[] | undefined }
 }
 
 export type NuevoMovimientoInput = {

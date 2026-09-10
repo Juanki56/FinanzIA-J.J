@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash2, Trophy, Wallet } from 'lucide-react'
+import { ArrowLeft, Pencil, Plus, Trash2, Trophy, Wallet } from 'lucide-react'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { Badge } from '@/components/ui/Badge'
@@ -11,6 +11,7 @@ import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Confetti } from '@/components/ui/Confetti'
 import { AllocationForm, type AllocationFormValues } from '@/components/goals/AllocationForm'
+import { EditAllocationForm, type EditAllocationFormValues } from '@/components/goals/EditAllocationForm'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/date'
 import { OBJETIVO_ESTADO_META } from '@/utils/meta'
@@ -18,6 +19,7 @@ import { useCuentas } from '@/hooks/useCuentas'
 import { useMe } from '@/hooks/useMe'
 import {
   useAsignaciones,
+  useActualizarAsignacion,
   useCrearAsignacion,
   useEliminarAsignacion,
   useObjetivos,
@@ -34,9 +36,11 @@ export function GoalDetailPage() {
   const { data: usuario } = useMe()
 
   const crearAsignacion = useCrearAsignacion(id ?? '')
+  const actualizarAsignacion = useActualizarAsignacion(id ?? '')
   const eliminarAsignacion = useEliminarAsignacion(id ?? '')
 
   const [modalOpen, setModalOpen] = useState(false)
+  const [editando, setEditando] = useState<AsignacionObjetivo | null>(null)
   const [eliminando, setEliminando] = useState<AsignacionObjetivo | null>(null)
 
   const objetivo = objetivos?.find((o) => o.id === id)
@@ -52,6 +56,20 @@ export function GoalDetailPage() {
         onSuccess: () => {
           notifySuccess('¡Asignación agregada!')
           setModalOpen(false)
+        },
+        onError: (err) => notifyError(err),
+      }
+    )
+  }
+
+  function onSubmitEditar(values: EditAllocationFormValues) {
+    if (!editando) return
+    actualizarAsignacion.mutate(
+      { asignacionId: editando.id, cambios: { monto_asignado: values.monto_asignado, notas: values.notas || undefined } },
+      {
+        onSuccess: () => {
+          notifySuccess('¡Asignación actualizada!')
+          setEditando(null)
         },
         onError: (err) => notifyError(err),
       }
@@ -161,6 +179,9 @@ export function GoalDetailPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="font-tabular text-sm font-semibold text-mint-400">{formatCurrency(a.monto_asignado, moneda)}</span>
+                  <button onClick={() => setEditando(a)} className="rounded-lg p-2 text-ink-400 hover:bg-white/8 hover:text-ink-100">
+                    <Pencil className="size-4" />
+                  </button>
                   <button onClick={() => setEliminando(a)} className="rounded-lg p-2 text-ink-400 hover:bg-coral-500/15 hover:text-coral-400">
                     <Trash2 className="size-4" />
                   </button>
@@ -173,6 +194,18 @@ export function GoalDetailPage() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nueva asignación">
         <AllocationForm cuentas={cuentas ?? []} onSubmit={onSubmit} onCancel={() => setModalOpen(false)} submitting={crearAsignacion.isPending} />
+      </Modal>
+
+      <Modal open={!!editando} onClose={() => setEditando(null)} title="Editar asignación">
+        {editando && (
+          <EditAllocationForm
+            asignacion={editando}
+            cuenta={cuentaPorId.get(editando.cuenta_id)}
+            onSubmit={onSubmitEditar}
+            onCancel={() => setEditando(null)}
+            submitting={actualizarAsignacion.isPending}
+          />
+        )}
       </Modal>
 
       <ConfirmDialog

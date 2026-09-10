@@ -11,6 +11,8 @@ import { BudgetsPage } from '@/pages/BudgetsPage'
 import { GoalsPage } from '@/pages/GoalsPage'
 import { GoalDetailPage } from '@/pages/GoalDetailPage'
 import { RecurringPage } from '@/pages/RecurringPage'
+import { ConnectionsPage } from '@/pages/ConnectionsPage'
+import { SettingsPage } from '@/pages/SettingsPage'
 
 function App() {
   return (
@@ -28,6 +30,8 @@ function App() {
         <Route path="/objetivos" element={<GoalsPage />} />
         <Route path="/objetivos/:id" element={<GoalDetailPage />} />
         <Route path="/recurrentes" element={<RecurringPage />} />
+        <Route path="/conexiones" element={<ConnectionsPage />} />
+        <Route path="/configuracion" element={<SettingsPage />} />
       </Route>
 
       <Route path="/" element={<Navigate to="/dashboard" replace />} />

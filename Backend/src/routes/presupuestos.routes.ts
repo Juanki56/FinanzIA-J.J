@@ -1,14 +1,15 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 import {
   listarPresupuestos, crearPresupuesto, actualizarPresupuesto, eliminarPresupuesto,
 } from '../controllers/presupuestos.controller.js';
 
 const router = Router();
 
-router.get('/', requireAuth, listarPresupuestos);
-router.post('/', requireAuth, crearPresupuesto);
-router.patch('/:id', requireAuth, actualizarPresupuesto);
-router.delete('/:id', requireAuth, eliminarPresupuesto);
+router.get('/', requireAuth, asyncHandler(listarPresupuestos));
+router.post('/', requireAuth, asyncHandler(crearPresupuesto));
+router.patch('/:id', requireAuth, asyncHandler(actualizarPresupuesto));
+router.delete('/:id', requireAuth, asyncHandler(eliminarPresupuesto));
 
 export default router;

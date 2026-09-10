@@ -76,6 +76,20 @@ export function useCrearAsignacion(objetivoId: string) {
   })
 }
 
+export type EditarAsignacionInput = Partial<{ monto_asignado: number; notas: string }>
+
+export function useActualizarAsignacion(objetivoId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ asignacionId, cambios }: { asignacionId: string; cambios: EditarAsignacionInput }) =>
+      api.patch<{ asignacion: AsignacionObjetivo }>(`/objetivos-ahorro/${objetivoId}/asignaciones/${asignacionId}`, cambios),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['objetivos', objetivoId, 'asignaciones'] })
+      qc.invalidateQueries({ queryKey: ['objetivos'] })
+    },
+  })
+}
+
 export function useEliminarAsignacion(objetivoId: string) {
   const qc = useQueryClient()
   return useMutation({

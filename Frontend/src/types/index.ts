@@ -155,3 +155,27 @@ export interface ApiErrorBody {
   error: string
   detalle?: string
 }
+
+export interface Paginacion {
+  pagina: number
+  limite: number
+  total: number
+  total_paginas: number
+}
+
+export interface MovimientosPage {
+  movimientos: Movimiento[]
+  paginacion: Paginacion
+}
+
+export interface Conexion {
+  id: string
+  proveedor: string
+  tipo: string
+  identificador_externo: string | null
+  estado: string
+  scopes: string[]
+  token_expira_at: string | null
+  ultima_sincronizacion_at: string | null
+  created_at: string
+}

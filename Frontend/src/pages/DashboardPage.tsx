@@ -11,7 +11,7 @@ import { BudgetCard } from '@/components/budgets/BudgetCard'
 import { CUENTA_TIPO_META } from '@/utils/meta'
 import { formatCurrency } from '@/utils/currency'
 import { useCuentas } from '@/hooks/useCuentas'
-import { useMovimientos } from '@/hooks/useMovimientos'
+import { useTodosLosMovimientos } from '@/hooks/useMovimientos'
 import { useCategorias } from '@/hooks/useCategorias'
 import { usePresupuestos } from '@/hooks/usePresupuestos'
 import { useMe } from '@/hooks/useMe'
@@ -19,7 +19,7 @@ import { useMe } from '@/hooks/useMe'
 export function DashboardPage() {
   const { data: usuario } = useMe()
   const { data: cuentas, isLoading: cargandoCuentas } = useCuentas()
-  const { data: movimientos, isLoading: cargandoMovs } = useMovimientos()
+  const { data: movimientos, isLoading: cargandoMovs } = useTodosLosMovimientos()
   const { data: categorias, isLoading: cargandoCats } = useCategorias()
   const { data: presupuestos, isLoading: cargandoPres } = usePresupuestos()
 

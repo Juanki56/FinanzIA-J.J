@@ -5,23 +5,31 @@ const ESTADOS_VALIDOS = ['pending', 'confirmed', 'cancelled'];
 
 export async function listarMovimientos(req: Request, res: Response) {
   const incluirEliminados = req.query.incluir_eliminados === 'true';
+  const limite = Math.min(Number(req.query.limite) || 50, 200);
+  const pagina = Math.max(Number(req.query.pagina) || 1, 1);
+  const desde = (pagina - 1) * limite;
+  const hasta = desde + limite - 1;
 
   let query = req.supabase
     .from('movimientos')
-    .select('*')
-    .order('fecha_movimiento', { ascending: false });
+    .select('*', { count: 'exact' })
+    .order('fecha_movimiento', { ascending: false })
+    .range(desde, hasta);
 
   if (!incluirEliminados) {
     query = query.eq('eliminado', false);
   }
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
 
   if (error) {
     return res.status(500).json({ error: 'Error al consultar los movimientos' });
   }
 
-  res.json({ movimientos: data });
+  res.json({
+    movimientos: data,
+    paginacion: { pagina, limite, total: count ?? 0, total_paginas: Math.ceil((count ?? 0) / limite) },
+  });
 }
 
 export async function crearMovimiento(req: Request, res: Response) {
