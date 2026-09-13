@@ -3,6 +3,10 @@ import crypto from 'crypto';
 import { crearOAuthClient, GMAIL_SCOPES } from '../lib/google.js';
 import { crearClienteConToken } from '../lib/supabase.js';
 import { guardarEstado, consumirEstado } from '../lib/oauthStateStore.js';
+import { sincronizarConexion } from '../services/sincronizacion.service.js';
+
+const SELECT_CONEXION =
+  'id, proveedor, tipo, identificador_externo, estado, scopes, token_expira_at, ultima_sincronizacion_at, cuenta_predeterminada_id, created_at';
 
 export function iniciarConexionGoogle(req: Request, res: Response) {
   const authHeader = req.headers.authorization!;
@@ -67,9 +71,7 @@ export async function callbackGoogle(req: Request, res: Response) {
 }
 
 export async function listarConexiones(req: Request, res: Response) {
-  const { data, error } = await req.supabase
-    .from('conexiones')
-    .select('id, proveedor, tipo, identificador_externo, estado, scopes, token_expira_at, ultima_sincronizacion_at, created_at');
+  const { data, error } = await req.supabase.from('conexiones').select(SELECT_CONEXION);
 
   if (error) {
     return res.status(500).json({ error: 'Error al consultar las conexiones' });
@@ -88,4 +90,104 @@ export async function eliminarConexion(req: Request, res: Response) {
   }
 
   res.status(204).send();
+}
+
+/** PATCH /api/conexiones/:id — hoy solo permite configurar la cuenta a la que
+ * se atribuyen los movimientos creados automáticamente desde esta conexión. */
+export async function actualizarConexion(req: Request, res: Response) {
+  const { id } = req.params;
+  const body = req.body ?? {};
+
+  const camposRecibidos = Object.keys(body);
+  const camposNoPermitidos = camposRecibidos.filter((c) => c !== 'cuenta_predeterminada_id');
+  if (camposNoPermitidos.length > 0) {
+    return res.status(400).json({
+      error: `Solo se puede modificar cuenta_predeterminada_id desde este endpoint (recibido también: ${camposNoPermitidos.join(', ')})`,
+    });
+  }
+  if (!('cuenta_predeterminada_id' in body)) {
+    return res.status(400).json({ error: 'cuenta_predeterminada_id es obligatorio' });
+  }
+
+  const cuentaId = body.cuenta_predeterminada_id;
+  if (cuentaId !== null && typeof cuentaId !== 'string') {
+    return res.status(400).json({ error: 'cuenta_predeterminada_id debe ser un id de cuenta o null' });
+  }
+
+  if (cuentaId !== null) {
+    // req.supabase respeta RLS: si la cuenta no es del usuario, esto no la encuentra.
+    const { data: cuenta } = await req.supabase.from('cuentas').select('id').eq('id', cuentaId).maybeSingle();
+    if (!cuenta) {
+      return res.status(400).json({ error: 'La cuenta indicada no existe o no te pertenece' });
+    }
+  }
+
+  const { data, error } = await req.supabase
+    .from('conexiones')
+    .update({ cuenta_predeterminada_id: cuentaId })
+    .eq('id', id)
+    .select(SELECT_CONEXION)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return res.status(404).json({ error: 'Conexión no encontrada' });
+    }
+    return res.status(400).json({ error: 'Error al actualizar la conexión', detalle: error.message });
+  }
+
+  res.json({ conexion: data });
+}
+
+/** POST /api/conexiones/:id/sincronizar — dispara la sincronización de forma
+ * síncrona usando el JWT del usuario que hace la request (no toca service_role,
+ * eso es solo para el cron). */
+export async function sincronizarConexionManual(req: Request, res: Response) {
+  const { id } = req.params;
+
+  const { data: conexion, error: errorConexion } = await req.supabase
+    .from('conexiones')
+    .select('id, estado, cuenta_predeterminada_id, ultima_sincronizacion_at')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (errorConexion || !conexion) {
+    return res.status(404).json({ error: 'Conexión no encontrada' });
+  }
+  if (conexion.estado !== 'active') {
+    return res.status(400).json({ error: `La conexión no está activa (estado actual: ${conexion.estado})` });
+  }
+  if (!conexion.cuenta_predeterminada_id) {
+    return res.status(400).json({
+      error:
+        'Configura una cuenta predeterminada para esta conexión antes de sincronizar (PATCH /api/conexiones/:id con cuenta_predeterminada_id)',
+    });
+  }
+
+  const resumen = await sincronizarConexion({
+    supabase: req.supabase,
+    usuarioId: req.usuario.id,
+    conexionId: conexion.id,
+    cuentaPredeterminadaId: conexion.cuenta_predeterminada_id as string,
+    ultimaSincronizacionAt: conexion.ultima_sincronizacion_at as string | null,
+    leerTokens: async () => {
+      const { data, error } = await req.supabase.rpc('leer_tokens_conexion', { p_conexion_id: id });
+      if (error || !data?.[0]) throw new Error('No se pudieron leer los tokens de la conexión');
+      return data[0];
+    },
+    guardarTokens: async (nuevo) => {
+      const { error } = await req.supabase.rpc('actualizar_tokens_conexion', {
+        p_conexion_id: id,
+        p_access_token: nuevo.access_token,
+        ...(nuevo.refresh_token ? { p_refresh_token: nuevo.refresh_token } : {}),
+        ...(nuevo.token_expira_at ? { p_token_expira_at: nuevo.token_expira_at } : {}),
+      });
+      if (error) throw new Error(`No se pudieron guardar los tokens renovados: ${error.message}`);
+    },
+    actualizarUltimaSincronizacion: async (fechaIso) => {
+      await req.supabase.from('conexiones').update({ ultima_sincronizacion_at: fechaIso }).eq('id', id);
+    },
+  });
+
+  res.json(resumen);
 }

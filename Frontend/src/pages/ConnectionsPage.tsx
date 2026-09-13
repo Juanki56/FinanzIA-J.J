@@ -5,7 +5,14 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Spinner } from '@/components/ui/Spinner'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { GmailConnectionCard } from '@/components/connections/GmailConnectionCard'
-import { useConexiones, useEliminarConexion, useIniciarConexionGoogle } from '@/hooks/useConexiones'
+import {
+  useActualizarConexion,
+  useConexiones,
+  useEliminarConexion,
+  useIniciarConexionGoogle,
+  useSincronizarConexion,
+} from '@/hooks/useConexiones'
+import { useCuentas } from '@/hooks/useCuentas'
 import { notifyError, notifySuccess } from '@/utils/toast'
 import toast from 'react-hot-toast'
 
@@ -20,8 +27,11 @@ const MOTIVOS_ERROR: Record<string, string> = {
 export function ConnectionsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { data: conexiones, isLoading } = useConexiones()
+  const { data: cuentas } = useCuentas()
   const iniciarGoogle = useIniciarConexionGoogle()
   const eliminar = useEliminarConexion()
+  const actualizarConexion = useActualizarConexion()
+  const sincronizar = useSincronizarConexion()
   const [desconectando, setDesconectando] = useState<string | null>(null)
   const parametrosYaLeidos = useRef(false)
 
@@ -65,6 +75,35 @@ export function ConnectionsPage() {
     })
   }
 
+  function cambiarCuentaPredeterminada(cuentaId: string | null) {
+    if (!conexionGoogle) return
+    actualizarConexion.mutate(
+      { id: conexionGoogle.id, cuentaPredeterminadaId: cuentaId },
+      {
+        onSuccess: () => notifySuccess('Cuenta actualizada.'),
+        onError: (err) => notifyError(err),
+      }
+    )
+  }
+
+  function sincronizarAhora() {
+    if (!conexionGoogle) return
+    sincronizar.mutate(conexionGoogle.id, {
+      onSuccess: (resumen) => {
+        if (resumen.movimientos_creados > 0) {
+          notifySuccess(
+            `¡Listo! 📬 ${resumen.movimientos_creados} movimiento${resumen.movimientos_creados === 1 ? '' : 's'} nuevo${resumen.movimientos_creados === 1 ? '' : 's'} esperando tu revisión.`
+          )
+        } else if (resumen.correos_nuevos === 0) {
+          toast('No hay correos nuevos por ahora.')
+        } else {
+          toast(`Revisé ${resumen.correos_nuevos} correo${resumen.correos_nuevos === 1 ? '' : 's'} nuevo${resumen.correos_nuevos === 1 ? '' : 's'}, pero no reconocí ninguno todavía.`)
+        }
+      },
+      onError: (err) => notifyError(err),
+    })
+  }
+
   return (
     <div>
       <PageHeader
@@ -78,16 +117,23 @@ export function ConnectionsPage() {
         <div className="flex flex-col gap-4">
           <GmailConnectionCard
             conexion={conexionGoogle}
+            cuentas={cuentas ?? []}
             onConnect={conectarGoogle}
             onDisconnect={() => setDesconectando(conexionGoogle?.id ?? null)}
+            onCambiarCuentaPredeterminada={cambiarCuentaPredeterminada}
+            onSincronizar={sincronizarAhora}
             connecting={iniciarGoogle.isPending}
+            actualizandoCuenta={actualizarConexion.isPending}
+            sincronizando={sincronizar.isPending}
           />
 
           <div className="flex items-start gap-2 rounded-xl border border-dashed border-white/10 px-4 py-3 text-xs text-ink-500">
             <Link2 className="mt-0.5 size-4 shrink-0" />
             <p>
-              Por ahora esta sección solo administra la conexión. Todavía no hay lectura automática
-              de correos ni categorización con IA — eso está planeado para más adelante.
+              Sincronizar revisa tus correos de Bancolombia y crea movimientos pendientes de
+              revisión automáticamente — nunca confirma nada por su cuenta. También corre solo cada
+              30 minutos mientras el servidor esté encendido, pero puedes forzarlo con el botón
+              cuando quieras verlo al día.
             </p>
           </div>
         </div>

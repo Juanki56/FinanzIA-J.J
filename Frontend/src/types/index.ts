@@ -177,5 +177,12 @@ export interface Conexion {
   scopes: string[]
   token_expira_at: string | null
   ultima_sincronizacion_at: string | null
+  cuenta_predeterminada_id: string | null
   created_at: string
+}
+
+export interface ResumenSincronizacion {
+  correos_nuevos: number
+  movimientos_creados: number
+  sin_reconocer: number
 }
