@@ -60,7 +60,35 @@ Todo el backend usa el cliente normal atado al JWT del usuario (`crearClienteCon
 
 ## Despliegue
 
-**Nada de esto está desplegado todavía.** Antes de hacerlo, dos cosas que hay que resolver primero — ver la conversación con Claude Code para el detalle completo:
+**Nada de esto está desplegado todavía.**
 
-1. El cron (`node-cron`) asume un proceso de Node siempre encendido. Eso **no funciona en plataformas serverless** (Vercel, y similares) sin cambios — ahí hay que migrar a un cron nativo de la plataforma que invoque un endpoint HTTP en vez de un scheduler en memoria.
-2. `lib/oauthStateStore.ts` guarda el estado del flujo de OAuth de Gmail **en memoria del proceso**. Funciona bien con un solo proceso persistente; en cualquier plataforma con múltiples instancias o funciones efímeras, hay que moverlo a una tabla de Postgres o similar antes de desplegar, o el login con Google fallará de forma intermitente.
+### Si despliegas en Vercel (u otra plataforma serverless)
+
+Vercel no mantiene un proceso de Node vivo entre peticiones, así que el cron
+en memoria (`node-cron`) no sirve ahí. Para eso existe `GET /api/cron/sincronizar`
++ `vercel.json` (ya incluido en este repo): Vercel le pega a esa URL en el
+horario configurado (`0 12 * * *` = 7am hora Colombia, ajustable), protegido
+con la variable `CRON_SECRET` (Vercel la manda sola como header
+`Authorization: Bearer <CRON_SECRET>` una vez configurada en el proyecto).
+
+**Límite del plan gratuito (Hobby) de Vercel: cron solo una vez al día**, con
+hasta ±59 min de margen. Para bajar a cada 30 minutos (o menos) hace falta el
+plan Pro. El botón "Sincronizar ahora" del frontend sigue funcionando igual de
+bien en cualquier plan — es solo una petición HTTP normal, no depende de esto.
+
+**Pendiente antes de desplegar en Vercel específicamente**:
+`lib/oauthStateStore.ts` guarda el estado del flujo de OAuth de Gmail **en
+memoria del proceso**, entre la petición que inicia la conexión y la que
+recibe la respuesta de Google — pueden caer en instancias distintas en un
+entorno serverless, lo que rompería el login de forma intermitente. Con un
+solo proceso persistente (tu máquina, Render, Railway) esto no es un problema.
+Arreglarlo bien implica cambiar a dónde redirige Google (al frontend en vez
+de al backend) para que el flujo no dependa de memoria compartida — es un
+cambio de arquitectura, no un fix de una línea, así que quedó pendiente de
+una conversación aparte antes de desplegar ahí.
+
+### Si despliegas en Render/Railway/una VPS (proceso siempre encendido)
+
+Nada que cambiar — el `node-cron` local funciona tal cual, cada
+`SYNC_INTERVAL_MINUTOS`. `GET /api/cron/sincronizar` también sigue disponible
+por si además quieres disparar un sync externo, pero no es necesario en este caso.

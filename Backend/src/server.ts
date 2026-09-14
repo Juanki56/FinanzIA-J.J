@@ -13,6 +13,7 @@ import objetivosAhorroRoutes from './routes/objetivosAhorro.routes.js';;
 import transaccionesRecurrentesRoutes from './routes/transaccionesRecurrentes.routes.js';
 import reglasCategorizacionRoutes from './routes/reglasCategorizacion.routes.js';
 import fuentesMovimientoRoutes from './routes/fuentesMovimiento.routes.js';
+import cronRoutes from './routes/cron.routes.js';
 import { iniciarCronSincronizacion } from './cron/sincronizacionCron.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -39,6 +40,7 @@ app.use('/api/transacciones-recurrentes', transaccionesRecurrentesRoutes);
 app.use('/api/conexiones', conexionesRoutes);
 app.use('/api/reglas-categorizacion', reglasCategorizacionRoutes);
 app.use('/api/fuentes-movimiento', fuentesMovimientoRoutes);
+app.use('/api/cron', cronRoutes);
 
 
 
