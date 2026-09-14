@@ -21,7 +21,7 @@ import {
   type NuevoMovimientoInput,
 } from '@/hooks/useMovimientos'
 import { notifyError, notifySuccess } from '@/utils/toast'
-import { dateOnlyLocal } from '@/utils/date'
+import { dateOnlyLocal, localDateInputToUtcIso } from '@/utils/date'
 import type { Movimiento } from '@/types'
 
 const FILTROS_VACIOS: MovementFiltersState = { cuentaId: '', categoriaId: '', tipo: '', desde: '', hasta: '' }
@@ -83,7 +83,7 @@ export function MovementsPage() {
       monto: values.monto,
       descripcion: values.descripcion || undefined,
       comercio: values.comercio || undefined,
-      fecha_movimiento: values.fecha_movimiento,
+      fecha_movimiento: localDateInputToUtcIso(values.fecha_movimiento),
       estado: values.estado,
       ...(values.tipo === 'adjustment' ? { signo: values.signo === '-1' ? (-1 as const) : (1 as const) } : {}),
     }

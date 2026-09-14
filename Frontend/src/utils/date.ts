@@ -26,6 +26,29 @@ export function dateOnlyLocal(value: string): string {
   return format(date, 'yyyy-MM-dd')
 }
 
+/**
+ * Convierte el valor de un `<input type="date">` (ej. "2026-09-13", sin hora)
+ * al timestamp UTC correcto para enviar a campos que SÍ tienen hora real
+ * (`fecha_movimiento`, `fecha_transferencia`) — nunca mandes el string crudo
+ * del input directamente a esos campos.
+ *
+ * El bug que esto evita: `new Date("2026-09-13")` (un string sin hora) lo
+ * interpreta el motor de JS como medianoche UTC, no medianoche local. Para
+ * Colombia (UTC-5), medianoche UTC del 13 es en realidad las 7pm del 12 hora
+ * local — así que guardar eso y después convertirlo de vuelta a hora local
+ * para mostrarlo (correctamente) hace que aparezca "12" en vez de "13".
+ * `new Date(año, mes, día)` con argumentos numéricos sí arma la fecha en
+ * hora LOCAL, que es lo que hay que convertir a UTC antes de mandar.
+ *
+ * Esto NO aplica a campos que ya son solo-fecha en la base de datos
+ * (fecha_inicio de presupuestos/recurrentes, fecha_objetivo) — a esos sí se
+ * les manda el string del input tal cual, sin pasar por esto.
+ */
+export function localDateInputToUtcIso(value: string): string {
+  const [anio, mes, dia] = value.split('-').map(Number)
+  return new Date(anio, mes - 1, dia).toISOString()
+}
+
 export function formatDate(value: string | null | undefined, pattern = 'd MMM yyyy'): string {
   if (!value) return '—'
   const date = value.length === 10 ? parseISO(`${value}T00:00:00`) : parseISO(value)

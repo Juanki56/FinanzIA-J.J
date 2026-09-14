@@ -12,6 +12,7 @@ import { TransferRow } from '@/components/transfers/TransferRow'
 import { useCuentas } from '@/hooks/useCuentas'
 import { useCrearTransferencia, useActualizarEstadoTransferencia, useTransferencias } from '@/hooks/useTransferencias'
 import { notifyError, notifySuccess } from '@/utils/toast'
+import { localDateInputToUtcIso } from '@/utils/date'
 import type { Transferencia } from '@/types'
 
 export function TransfersPage() {
@@ -28,7 +29,11 @@ export function TransfersPage() {
 
   function onSubmit(values: TransferFormValues) {
     crear.mutate(
-      { ...values, descripcion: values.descripcion || undefined },
+      {
+        ...values,
+        descripcion: values.descripcion || undefined,
+        fecha_transferencia: localDateInputToUtcIso(values.fecha_transferencia),
+      },
       {
         onSuccess: () => {
           notifySuccess('¡Transferencia realizada! 🔁')
