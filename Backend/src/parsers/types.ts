@@ -15,14 +15,21 @@ export interface CorreoParseado {
 // cada plantilla) — es una regla general del flujo, no algo que varíe por tipo
 // de correo.
 
-/** Las 7 plantillas de Bancolombia capturan exactamente 5 grupos cada una. */
+/** La mayoría de las plantillas capturan 5 grupos; alguna necesita 6+. */
 export type Grupos5 = [string, string, string, string, string];
+export type Grupos6 = [string, string, string, string, string, string];
 
 export interface PlantillaBancaria {
   nombre: string;
   regex: RegExp;
-  /** Recibe los grupos del match (sin el match completo, index 0) y devuelve el correo interpretado. */
-  interpretar: (grupos: Grupos5) => CorreoParseado;
+  /**
+   * Recibe los grupos del match (sin el match completo, index 0) y devuelve
+   * el correo interpretado. Tipado como string[] genérico porque distintas
+   * plantillas capturan distinta cantidad de grupos — cada interpretar()
+   * castea a la tupla de su propia aridad (Grupos5, Grupos6, etc.) al
+   * desestructurar, sabiendo cuántos grupos tiene su propio regex.
+   */
+  interpretar: (grupos: string[]) => CorreoParseado;
 }
 
 export interface RegistroBanco {
