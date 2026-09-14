@@ -3,6 +3,7 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { PieChart as PieChartIcon } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { formatCurrency } from '@/utils/currency'
+import { dateOnlyLocal } from '@/utils/date'
 import type { Categoria, Movimiento } from '@/types'
 
 const PALETA = ['#9256ff', '#22d3ee', '#f742e0', '#2fe3a8', '#ffb703', '#fb5678', '#5ce9ff', '#ff8fa3']
@@ -23,7 +24,7 @@ export function CategorySpendChart({ movimientos, categorias, moneda = 'COP' }: 
         m.tipo === 'expense' &&
         !m.eliminado &&
         m.estado !== 'cancelled' &&
-        m.fecha_movimiento.slice(0, 10) >= inicioMes
+        dateOnlyLocal(m.fecha_movimiento) >= inicioMes
     )
 
     const porCategoria = new Map<string, number>()

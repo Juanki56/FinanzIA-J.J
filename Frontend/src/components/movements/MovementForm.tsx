@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { Input, Select, Textarea } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
 import { buildCategoryOptions } from '@/utils/categoryTree'
-import { todayISO } from '@/utils/date'
+import { dateOnlyLocal, todayISO } from '@/utils/date'
 import type { Categoria, Cuenta, Movimiento } from '@/types'
 
 const schema = z.object({
@@ -57,7 +57,7 @@ export function MovementForm({
           signo: movimiento.signo === -1 ? '-1' : '1',
           descripcion: movimiento.descripcion ?? '',
           comercio: movimiento.comercio ?? '',
-          fecha_movimiento: movimiento.fecha_movimiento.slice(0, 10),
+          fecha_movimiento: dateOnlyLocal(movimiento.fecha_movimiento),
           estado: movimiento.estado,
         }
       : {

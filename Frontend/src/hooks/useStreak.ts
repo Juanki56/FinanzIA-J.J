@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useTodosLosMovimientos } from './useMovimientos'
+import { dateOnlyLocal } from '@/utils/date'
 
 /** Racha de días consecutivos (incluyendo hoy o ayer) con al menos un movimiento registrado. */
 export function useStreak() {
@@ -8,7 +9,10 @@ export function useStreak() {
   return useMemo(() => {
     if (!movimientos || movimientos.length === 0) return 0
 
-    const dias = new Set(movimientos.map((m) => m.fecha_movimiento.slice(0, 10)))
+    // dateOnlyLocal, no .slice(0, 10) -- fecha_movimiento trae hora real, y
+    // cortar el string UTC crudo adelanta un día los movimientos de la noche
+    // (hora Colombia) al cruzar la medianoche UTC.
+    const dias = new Set(movimientos.map((m) => dateOnlyLocal(m.fecha_movimiento)))
     const cursor = new Date()
     cursor.setHours(0, 0, 0, 0)
 

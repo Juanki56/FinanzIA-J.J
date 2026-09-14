@@ -21,6 +21,7 @@ import {
   type NuevoMovimientoInput,
 } from '@/hooks/useMovimientos'
 import { notifyError, notifySuccess } from '@/utils/toast'
+import { dateOnlyLocal } from '@/utils/date'
 import type { Movimiento } from '@/types'
 
 const FILTROS_VACIOS: MovementFiltersState = { cuentaId: '', categoriaId: '', tipo: '', desde: '', hasta: '' }
@@ -58,8 +59,8 @@ export function MovementsPage() {
       if (filtros.cuentaId && m.cuenta_id !== filtros.cuentaId) return false
       if (filtros.categoriaId && m.categoria_id !== filtros.categoriaId) return false
       if (filtros.tipo && m.tipo !== filtros.tipo) return false
-      if (filtros.desde && m.fecha_movimiento.slice(0, 10) < filtros.desde) return false
-      if (filtros.hasta && m.fecha_movimiento.slice(0, 10) > filtros.hasta) return false
+      if (filtros.desde && dateOnlyLocal(m.fecha_movimiento) < filtros.desde) return false
+      if (filtros.hasta && dateOnlyLocal(m.fecha_movimiento) > filtros.hasta) return false
       return true
     })
   }, [movimientos, filtros])
