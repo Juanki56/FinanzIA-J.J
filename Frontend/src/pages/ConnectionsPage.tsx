@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { GmailConnectionCard } from '@/components/connections/GmailConnectionCard'
 import {
   useActualizarConexion,
+  useCompletarConexionGoogle,
   useConexiones,
   useEliminarConexion,
   useIniciarConexionGoogle,
@@ -16,19 +17,18 @@ import { useCuentas } from '@/hooks/useCuentas'
 import { notifyError, notifySuccess } from '@/utils/toast'
 import toast from 'react-hot-toast'
 
-const MOTIVOS_ERROR: Record<string, string> = {
-  cancelado: 'Cancelaste la conexión con Google antes de terminar.',
-  parametros_faltantes: 'Google no envió la información esperada. Intenta de nuevo.',
-  state_invalido_o_expirado: 'La conexión tardó demasiado o expiró. Intenta de nuevo.',
-  google_no_devolvio_tokens: 'Google no devolvió los permisos necesarios. Intenta de nuevo.',
-  no_se_pudo_guardar: 'No pudimos guardar la conexión de nuestro lado. Intenta de nuevo.',
-}
+// Google nos redirige a esta misma página con ?code=...&state=... (o
+// ?error=... si el usuario canceló). El `state` viaja por sessionStorage,
+// nunca por el servidor -- así no depende de que dos peticiones caigan en la
+// misma instancia del backend (crítico en un despliegue serverless).
+const OAUTH_STATE_KEY = 'finanzia_google_oauth_state'
 
 export function ConnectionsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { data: conexiones, isLoading } = useConexiones()
   const { data: cuentas } = useCuentas()
   const iniciarGoogle = useIniciarConexionGoogle()
+  const completarConexion = useCompletarConexionGoogle()
   const eliminar = useEliminarConexion()
   const actualizarConexion = useActualizarConexion()
   const sincronizar = useSincronizarConexion()
@@ -36,16 +36,32 @@ export function ConnectionsPage() {
   const parametrosYaLeidos = useRef(false)
 
   useEffect(() => {
-    const estado = searchParams.get('estado')
-    if (!estado || parametrosYaLeidos.current) return
+    const code = searchParams.get('code')
+    const errorParam = searchParams.get('error')
+    const returnedState = searchParams.get('state')
+
+    if (!code && !errorParam) return
+    if (parametrosYaLeidos.current) return
     parametrosYaLeidos.current = true
 
-    if (estado === 'exito') {
-      notifySuccess('¡Gmail conectado! 📬 Pronto podremos leer tus correos bancarios automáticamente')
-    } else if (estado === 'error') {
-      const motivo = searchParams.get('motivo') ?? ''
-      const mensaje = MOTIVOS_ERROR[motivo] ?? 'No se pudo completar la conexión con Google. Intenta de nuevo.'
-      toast.error(mensaje)
+    let estadoGuardado: string | null = null
+    try {
+      estadoGuardado = sessionStorage.getItem(OAUTH_STATE_KEY)
+      sessionStorage.removeItem(OAUTH_STATE_KEY)
+    } catch {
+      // sessionStorage puede fallar en algunos navegadores/modos privados --
+      // sin él no podemos verificar el state, así que tratamos como inválido.
+    }
+
+    if (errorParam) {
+      toast.error('Cancelaste la conexión con Google antes de terminar.')
+    } else if (!returnedState || returnedState !== estadoGuardado) {
+      toast.error('No pudimos verificar la conexión (puede haber tardado demasiado). Intenta de nuevo.')
+    } else if (code) {
+      completarConexion.mutate(code, {
+        onSuccess: () => notifySuccess('¡Gmail conectado! 📬 Pronto podremos leer tus correos bancarios automáticamente'),
+        onError: (err) => notifyError(err),
+      })
     }
 
     // Limpiamos los query params para que un refresh no vuelva a disparar el mensaje.
@@ -58,6 +74,12 @@ export function ConnectionsPage() {
   function conectarGoogle() {
     iniciarGoogle.mutate(undefined, {
       onSuccess: (data) => {
+        try {
+          sessionStorage.setItem(OAUTH_STATE_KEY, data.state)
+        } catch {
+          // si sessionStorage falla, seguimos igual -- la verificación al
+          // volver simplemente no coincidirá y se pedirá reintentar.
+        }
         window.location.href = data.url
       },
       onError: (err) => notifyError(err),

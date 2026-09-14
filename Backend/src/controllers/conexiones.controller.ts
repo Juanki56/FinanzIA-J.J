@@ -1,19 +1,25 @@
 import type { Request, Response } from 'express';
 import crypto from 'crypto';
 import { crearOAuthClient, GMAIL_SCOPES } from '../lib/google.js';
-import { crearClienteConToken } from '../lib/supabase.js';
-import { guardarEstado, consumirEstado } from '../lib/oauthStateStore.js';
 import { sincronizarConexion } from '../services/sincronizacion.service.js';
 
 const SELECT_CONEXION =
   'id, proveedor, tipo, identificador_externo, estado, scopes, token_expira_at, ultima_sincronizacion_at, cuenta_predeterminada_id, created_at';
 
-export function iniciarConexionGoogle(req: Request, res: Response) {
-  const authHeader = req.headers.authorization!;
-  const jwt = authHeader.slice('Bearer '.length);
-
+/**
+ * GET /api/conexiones/google — arma la URL de autorización de Google.
+ *
+ * A propósito NO guarda nada en el servidor (ni en memoria ni en una tabla):
+ * Google redirige de vuelta al FRONTEND (GOOGLE_REDIRECT_URI ahora apunta ahí,
+ * no al backend), así que la misma pestaña que inició la conexión es la que
+ * la termina — no hay nada que "recordar" entre dos peticiones que podrían
+ * caer en instancias de servidor distintas (crítico en un despliegue
+ * serverless como Vercel). El `state` es un valor aleatorio que el frontend
+ * guarda en sessionStorage y verifica él mismo al volver, como protección
+ * CSRF — el backend no necesita saber cuál era.
+ */
+export function iniciarConexionGoogle(_req: Request, res: Response) {
   const state = crypto.randomBytes(32).toString('hex');
-  guardarEstado(state, jwt, req.usuario.id);
 
   const oauthClient = crearOAuthClient();
   const url = oauthClient.generateAuthUrl({
@@ -23,36 +29,42 @@ export function iniciarConexionGoogle(req: Request, res: Response) {
     state,
   });
 
-  res.json({ url });
+  res.json({ url, state });
 }
 
-export async function callbackGoogle(req: Request, res: Response) {
-  const { code, state, error: errorGoogle } = req.query as Record<string, string>;
-  const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+/**
+ * POST /api/conexiones/google/callback — el FRONTEND llama esto (autenticado
+ * con el JWT normal del usuario) después de que Google lo redirige de vuelta
+ * con un `code`. Intercambia ese código por tokens y crea la conexión con
+ * `req.supabase` (ya atado al usuario que hace la request) — no hace falta
+ * ningún estado guardado de la petición anterior.
+ */
+export async function completarConexionGoogle(req: Request, res: Response) {
+  const { code } = req.body ?? {};
 
-  if (errorGoogle) {
-    return res.redirect(`${FRONTEND_URL}/conexiones?estado=error&motivo=cancelado`);
-  }
-
-  if (typeof code !== 'string' || typeof state !== 'string') {
-    return res.redirect(`${FRONTEND_URL}/conexiones?estado=error&motivo=parametros_faltantes`);
-  }
-
-  const guardado = consumirEstado(state);
-  if (!guardado) {
-    return res.redirect(`${FRONTEND_URL}/conexiones?estado=error&motivo=state_invalido_o_expirado`);
+  if (typeof code !== 'string' || !code) {
+    return res.status(400).json({ error: 'Falta el código de autorización de Google' });
   }
 
   const oauthClient = crearOAuthClient();
-  const { tokens } = await oauthClient.getToken(code);
 
-  if (!tokens.access_token || !tokens.refresh_token) {
-    return res.redirect(`${FRONTEND_URL}/conexiones?estado=error&motivo=google_no_devolvio_tokens`);
+  let tokens;
+  try {
+    ({ tokens } = await oauthClient.getToken(code));
+  } catch (err) {
+    return res.status(400).json({
+      error: 'Google rechazó el código de autorización (puede haber expirado o ya haberse usado). Intenta conectar de nuevo.',
+      detalle: err instanceof Error ? err.message : String(err),
+    });
   }
 
-  const supabase = crearClienteConToken(guardado.jwt);
+  if (!tokens.access_token || !tokens.refresh_token) {
+    return res.status(400).json({
+      error: 'Google no devolvió los permisos necesarios. Intenta conectar de nuevo y acepta todos los permisos solicitados.',
+    });
+  }
 
-  const { error } = await supabase.rpc('crear_conexion', {
+  const { error } = await req.supabase.rpc('crear_conexion', {
     p_proveedor: 'google',
     p_tipo: 'email',
     p_identificador_externo: null,
@@ -64,10 +76,10 @@ export async function callbackGoogle(req: Request, res: Response) {
 
   if (error) {
     console.error('Error al guardar la conexión de Google:', error);
-    return res.redirect(`${FRONTEND_URL}/conexiones?estado=error&motivo=no_se_pudo_guardar`);
+    return res.status(400).json({ error: 'No se pudo guardar la conexión', detalle: error.message });
   }
 
-  res.redirect(`${FRONTEND_URL}/conexiones?estado=exito`);
+  res.json({ ok: true });
 }
 
 export async function listarConexiones(req: Request, res: Response) {

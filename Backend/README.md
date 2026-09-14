@@ -16,8 +16,8 @@ npm run dev             # http://localhost:3001
 |---|---|---|
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Cliente normal, respeta RLS | Sí |
 | `SUPABASE_SERVICE_ROLE_KEY` | Solo la usa el cron de sincronización de correos (ver abajo). Salta RLS — nunca se usa fuera de ese cron. | No (sin ella, el cron simplemente no arranca; el resto del backend funciona igual) |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | OAuth de Gmail (conexión de correo) | Sí, para la sección de Conexiones |
-| `FRONTEND_URL` | A dónde redirige Google tras el consentimiento | Sí (default `http://localhost:5173`) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | OAuth de Gmail (conexión de correo) | Sí, para la sección de Conexiones |
+| `GOOGLE_REDIRECT_URI` | A dónde redirige Google tras el consentimiento — **apunta al frontend**, no al backend (ver "Conexión con Gmail" abajo). Debe coincidir exactamente con una "Authorized redirect URI" en Google Cloud Console. | Sí |
 | `SYNC_INTERVAL_MINUTOS` | Cada cuánto corre el cron de sincronización | No (default 30) |
 | `GEMINI_API_KEY` | Sugerencia de categoría con IA | No (sin ella, ese endpoint responde 503, el resto sigue igual) |
 | `GEMINI_MODEL` | Modelo de Gemini a usar | No (default `gemini-3.5-flash-lite` — Google renombra modelos cada pocos meses, confirma en [ai.google.dev/gemini-api/docs/pricing](https://ai.google.dev/gemini-api/docs/pricing) si deja de existir) |
@@ -29,7 +29,7 @@ Cuentas, movimientos, transferencias, categorías, presupuestos, objetivos de ah
 ## Conexión con Gmail y captura automática de movimientos
 
 **Cómo funciona:**
-1. El usuario conecta su Gmail desde el frontend (OAuth, `GET /api/conexiones/google` → redirect a Google → `GET /api/conexiones/google/callback`). Tokens cifrados en Supabase Vault, nunca en texto plano.
+1. El usuario conecta su Gmail desde el frontend: `GET /api/conexiones/google` (autenticado) devuelve la URL de Google, el frontend navega ahí, y **Google redirige de vuelta al frontend** (`GOOGLE_REDIRECT_URI`), no al backend. El frontend llama entonces a `POST /api/conexiones/google/callback` (autenticado con el JWT normal del usuario) con el código recibido, y el backend lo intercambia por tokens y crea la conexión. A propósito no hay ningún estado guardado en el servidor entre esas dos peticiones — la protección CSRF (`state`) la guarda y verifica el frontend en `sessionStorage`. Esto es lo que permite desplegar en una plataforma serverless (Vercel) sin que el login falle de forma intermitente por caer en instancias distintas. Tokens cifrados en Supabase Vault, nunca en texto plano.
 2. El usuario elige una **cuenta predeterminada** (`PATCH /api/conexiones/:id` con `cuenta_predeterminada_id`) — es la cuenta de FinanzIA a la que se atribuyen los movimientos detectados. Sin esto configurado, sincronizar falla con un 400 explicando qué falta.
 3. La sincronización (`services/sincronizacion.service.ts`) lee los correos de Bancolombia no vistos, los parsea con regex (`parsers/bancolombia.ts` — sin IA, sin costo), busca una categoría en `reglas_categorizacion` si alguna coincide, y crea el movimiento con `estado: 'pending'` y `requiere_revision: true` **siempre** — nunca confirma nada automáticamente.
 4. Cada correo queda registrado en `fuentes_movimiento` (deduplicado por hash del contenido), con `estado_procesamiento` en `pending | processed | ignored | error`.
@@ -76,16 +76,9 @@ hasta ±59 min de margen. Para bajar a cada 30 minutos (o menos) hace falta el
 plan Pro. El botón "Sincronizar ahora" del frontend sigue funcionando igual de
 bien en cualquier plan — es solo una petición HTTP normal, no depende de esto.
 
-**Pendiente antes de desplegar en Vercel específicamente**:
-`lib/oauthStateStore.ts` guarda el estado del flujo de OAuth de Gmail **en
-memoria del proceso**, entre la petición que inicia la conexión y la que
-recibe la respuesta de Google — pueden caer en instancias distintas en un
-entorno serverless, lo que rompería el login de forma intermitente. Con un
-solo proceso persistente (tu máquina, Render, Railway) esto no es un problema.
-Arreglarlo bien implica cambiar a dónde redirige Google (al frontend en vez
-de al backend) para que el flujo no dependa de memoria compartida — es un
-cambio de arquitectura, no un fix de una línea, así que quedó pendiente de
-una conversación aparte antes de desplegar ahí.
+**Ya resuelto** (antes era un pendiente de este README): el flujo de conexión
+con Gmail no depende de memoria compartida entre peticiones. Ver la sección
+"Conexión con Gmail" más abajo.
 
 ### Si despliegas en Render/Railway/una VPS (proceso siempre encendido)
 

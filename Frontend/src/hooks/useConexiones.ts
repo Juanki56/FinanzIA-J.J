@@ -32,10 +32,25 @@ export function useSincronizarConexion() {
   })
 }
 
-/** Pide la URL de autorización de Google. El caller debe hacer window.location.href = url. */
+/**
+ * Pide la URL de autorización de Google + un `state` aleatorio. El caller debe
+ * guardar `state` en sessionStorage antes de hacer window.location.href = url
+ * -- Google redirige de vuelta a esta misma app (no al backend), y al volver
+ * hay que verificar que el `state` recibido coincida con el guardado, como
+ * protección CSRF. El backend no guarda nada de esto.
+ */
 export function useIniciarConexionGoogle() {
   return useMutation({
-    mutationFn: () => api.get<{ url: string }>('/conexiones/google'),
+    mutationFn: () => api.get<{ url: string; state: string }>('/conexiones/google'),
+  })
+}
+
+/** Intercambia el `code` que Google devolvió por la conexión ya creada. */
+export function useCompletarConexionGoogle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (code: string) => api.post<{ ok: true }>('/conexiones/google/callback', { code }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['conexiones'] }),
   })
 }
 
