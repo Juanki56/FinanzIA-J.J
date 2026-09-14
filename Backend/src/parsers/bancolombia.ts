@@ -226,7 +226,12 @@ const PLANTILLAS: PlantillaBancaria[] = [
 ];
 
 export const BANCOLOMBIA: RegistroBanco = {
-  remitente: 'alertasynotificaciones@an.notificacionesbancolombia.com',
+  // Encontrado con un correo real del usuario: Bancolombia manda
+  // notificaciones transaccionales desde ambos dominios, no solo uno.
+  remitentes: [
+    'alertasynotificaciones@an.notificacionesbancolombia.com',
+    'alertasynotificaciones@bancolombia.com.co',
+  ],
   plantillas: PLANTILLAS,
 };
 

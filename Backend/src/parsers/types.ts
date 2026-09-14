@@ -33,7 +33,14 @@ export interface PlantillaBancaria {
 }
 
 export interface RegistroBanco {
-  /** Remitente exacto usado para filtrar en Gmail (`from:`). */
-  remitente: string;
+  /**
+   * Remitentes usados para filtrar en Gmail (`from:`). Un banco puede
+   * mandar notificaciones transaccionales desde más de un dominio a la vez
+   * (encontrado con un correo real: Bancolombia usa tanto
+   * `@an.notificacionesbancolombia.com` como `@bancolombia.com.co`) — buscar
+   * solo uno deja correos reales completamente fuera de la sincronización,
+   * ni siquiera llegan a intentar parsearse.
+   */
+  remitentes: string[];
   plantillas: PlantillaBancaria[];
 }

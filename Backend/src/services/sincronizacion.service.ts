@@ -127,9 +127,13 @@ export async function sincronizarConexion(ctx: ContextoSincronizacion): Promise<
     ? Math.floor(new Date(ctx.ultimaSincronizacionAt).getTime() / 1000)
     : Math.floor((Date.now() - DIAS_LOOKBACK_PRIMERA_VEZ * 24 * 60 * 60 * 1000) / 1000);
 
+  // Gmail entiende {from:a from:b} como OR entre remitentes -- un banco
+  // puede notificar desde más de un dominio (ver nota en BANCOLOMBIA.remitentes).
+  const filtroRemitentes = `{${BANCOLOMBIA.remitentes.map((r) => `from:${r}`).join(' ')}}`;
+
   const listado = await gmail.users.messages.list({
     userId: 'me',
-    q: `from:${BANCOLOMBIA.remitente} after:${despuesUnix}`,
+    q: `${filtroRemitentes} after:${despuesUnix}`,
     maxResults: 50,
   });
   const mensajes = listado.data.messages ?? [];
@@ -155,7 +159,7 @@ export async function sincronizarConexion(ctx: ContextoSincronizacion): Promise<
 
     const headers = detalle.data.payload?.headers ?? [];
     const asunto = headers.find((h) => h.name === 'Subject')?.value ?? '';
-    const remitenteReal = headers.find((h) => h.name === 'From')?.value ?? BANCOLOMBIA.remitente;
+    const remitenteReal = headers.find((h) => h.name === 'From')?.value ?? BANCOLOMBIA.remitentes[0] ?? 'desconocido';
     const fechaRecibido = detalle.data.internalDate
       ? new Date(Number(detalle.data.internalDate)).toISOString()
       : new Date().toISOString();
