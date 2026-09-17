@@ -13,12 +13,14 @@ import { GoalDetailPage } from '@/pages/GoalDetailPage'
 import { RecurringPage } from '@/pages/RecurringPage'
 import { ConnectionsPage } from '@/pages/ConnectionsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { PrivacyPolicyPage } from '@/pages/PrivacyPolicyPage'
 
 function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/politica-de-privacidad" element={<PrivacyPolicyPage />} />
 
       <Route element={<RequireAuth />}>
         <Route path="/dashboard" element={<DashboardPage />} />
