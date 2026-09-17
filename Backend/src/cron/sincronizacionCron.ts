@@ -101,6 +101,18 @@ export async function ejecutarSincronizacionGlobal(): Promise<void> {
 }
 
 export function iniciarCronSincronizacion(): void {
+  // `VERCEL` la define automáticamente la plataforma en todo despliegue (no es
+  // una variable nuestra, así que no se puede corromper por un paste manual).
+  // Este node-cron es solo para hosts siempre-encendidos (ver comentario en
+  // cron.controller.ts) — en Vercel, cada instancia de Fluid Compute que quede
+  // caliente lo arrancaría por su cuenta, duplicando la sincronización que ya
+  // dispara Vercel Cron Jobs contra /api/cron/sincronizar y disparando
+  // refrescos de token de Google en paralelo sobre la misma conexión.
+  if (process.env.VERCEL) {
+    console.log('[cron sincronizacion] detectado entorno Vercel — se usa Vercel Cron Jobs en su lugar, no node-cron.');
+    return;
+  }
+
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     console.warn(
       '[cron sincronizacion] falta SUPABASE_SERVICE_ROLE_KEY en el .env — el cron de sincronización de correos NO se inicia.'
