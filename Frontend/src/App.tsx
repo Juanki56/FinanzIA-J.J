@@ -7,6 +7,7 @@ import { AccountsPage } from '@/pages/AccountsPage'
 import { MovementsPage } from '@/pages/MovementsPage'
 import { TransfersPage } from '@/pages/TransfersPage'
 import { CategoriesPage } from '@/pages/CategoriesPage'
+import { CategoryDetailPage } from '@/pages/CategoryDetailPage'
 import { BudgetsPage } from '@/pages/BudgetsPage'
 import { GoalsPage } from '@/pages/GoalsPage'
 import { GoalDetailPage } from '@/pages/GoalDetailPage'
@@ -28,6 +29,7 @@ function App() {
         <Route path="/movimientos" element={<MovementsPage />} />
         <Route path="/transferencias" element={<TransfersPage />} />
         <Route path="/categorias" element={<CategoriesPage />} />
+        <Route path="/categorias/:id" element={<CategoryDetailPage />} />
         <Route path="/presupuestos" element={<BudgetsPage />} />
         <Route path="/objetivos" element={<GoalsPage />} />
         <Route path="/objetivos/:id" element={<GoalDetailPage />} />

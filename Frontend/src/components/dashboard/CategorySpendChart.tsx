@@ -1,93 +1,104 @@
 import { useMemo } from 'react'
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { PieChart as PieChartIcon } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { formatCurrency } from '@/utils/currency'
-import { dateOnlyLocal } from '@/utils/date'
+import { COLOR_GASTO } from './chartColors'
 import type { Categoria, Movimiento } from '@/types'
 
-const PALETA = ['#9256ff', '#22d3ee', '#f742e0', '#2fe3a8', '#ffb703', '#fb5678', '#5ce9ff', '#ff8fa3']
+const MAX_FILAS = 7
 
 interface CategorySpendChartProps {
-  movimientos: Movimiento[]
+  /** Gastos YA filtrados por periodo y cuenta. */
+  gastos: Movimiento[]
   categorias: Categoria[]
   moneda?: string
+  /** Color de las barras: coral para gastos (por defecto), cian para ingresos. */
+  color?: string
+  textoVacio?: string
 }
 
-export function CategorySpendChart({ movimientos, categorias, moneda = 'COP' }: CategorySpendChartProps) {
-  const data = useMemo(() => {
-    const ahora = new Date()
-    const inicioMes = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-01`
-
-    const gastosDelMes = movimientos.filter(
-      (m) =>
-        m.tipo === 'expense' &&
-        !m.eliminado &&
-        m.estado !== 'cancelled' &&
-        dateOnlyLocal(m.fecha_movimiento) >= inicioMes
-    )
-
+/**
+ * Gasto por categoría como barras horizontales ordenadas: con muchas
+ * categorías se comparan mejor que en una dona, y al ser un solo color no
+ * depende de distinguir tonos. Lo que no cabe se agrupa en "Otras".
+ */
+export function CategorySpendChart({
+  gastos,
+  categorias,
+  moneda = 'COP',
+  color = COLOR_GASTO,
+  textoVacio = 'Sin gastos en este periodo',
+}: CategorySpendChartProps) {
+  const { filas, total } = useMemo(() => {
     const porCategoria = new Map<string, number>()
-    for (const mov of gastosDelMes) {
+    for (const mov of gastos) {
       const key = mov.categoria_id ?? 'sin-categoria'
       porCategoria.set(key, (porCategoria.get(key) ?? 0) + Number(mov.monto))
     }
 
-    return Array.from(porCategoria.entries())
-      .map(([categoriaId, total]) => {
+    const ordenadas = Array.from(porCategoria.entries())
+      .map(([categoriaId, valor]) => {
         const cat = categorias.find((c) => c.id === categoriaId)
-        return { name: cat ? `${cat.icono ?? ''} ${cat.nombre}`.trim() : 'Sin categoría', value: total, color: cat?.color }
+        return { id: categoriaId, nombre: cat?.nombre ?? 'Sin categoría', icono: cat?.icono ?? null, valor }
       })
-      .sort((a, b) => b.value - a.value)
-  }, [movimientos, categorias])
+      .sort((a, b) => b.valor - a.valor)
 
-  if (data.length === 0) {
+    const total = ordenadas.reduce((s, f) => s + f.valor, 0)
+    if (ordenadas.length <= MAX_FILAS) return { filas: ordenadas, total }
+
+    const visibles = ordenadas.slice(0, MAX_FILAS - 1)
+    const resto = ordenadas.slice(MAX_FILAS - 1)
+    return {
+      filas: [
+        ...visibles,
+        {
+          id: 'otras',
+          nombre: `Otras (${resto.length})`,
+          icono: null,
+          valor: resto.reduce((s, f) => s + f.valor, 0),
+        },
+      ],
+      total,
+    }
+  }, [gastos, categorias])
+
+  if (filas.length === 0) {
     return (
       <EmptyState
         icon={<PieChartIcon className="size-6" />}
-        title="Sin gastos este mes todavía"
+        title={textoVacio}
         description="En cuanto registres un gasto, aquí verás en qué se te va la plata."
       />
     )
   }
 
+  const maximo = filas[0].valor
+
   return (
-    <div className="grid gap-4 sm:grid-cols-2 sm:items-center">
-      <div className="h-56">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie data={data} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={3}>
-              {data.map((entry, i) => (
-                <Cell key={entry.name} fill={entry.color || PALETA[i % PALETA.length]} stroke="none" />
-              ))}
-            </Pie>
-            <Tooltip
-              formatter={(value) => formatCurrency(Number(value), moneda)}
-              contentStyle={{
-                background: '#1b1738',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 12,
-                color: '#f6f4ff',
-                fontSize: 13,
-              }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-      <ul className="flex flex-col gap-2">
-        {data.slice(0, 6).map((item, i) => (
-          <li key={item.name} className="flex items-center justify-between gap-2 text-sm">
-            <span className="flex items-center gap-2 text-ink-300">
-              <span
-                className="size-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: item.color || PALETA[i % PALETA.length] }}
+    <ul className="flex flex-col gap-3">
+      {filas.map((fila) => {
+        const pct = total > 0 ? (fila.valor / total) * 100 : 0
+        return (
+          <li key={fila.id} title={`${fila.nombre}: ${formatCurrency(fila.valor, moneda)} (${pct.toFixed(1)}%)`}>
+            <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
+              <span className="truncate text-ink-200">
+                {fila.icono && <span className="mr-1.5">{fila.icono}</span>}
+                {fila.nombre}
+              </span>
+              <span className="shrink-0 font-tabular text-ink-100">
+                {formatCurrency(fila.valor, moneda)}
+                <span className="ml-2 inline-block w-10 text-right text-xs text-ink-500">{pct.toFixed(0)}%</span>
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-white/[0.06]">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${Math.max((fila.valor / maximo) * 100, 2)}%`, backgroundColor: color }}
               />
-              {item.name}
-            </span>
-            <span className="font-tabular font-medium text-ink-100">{formatCurrency(item.value, moneda)}</span>
+            </div>
           </li>
-        ))}
-      </ul>
-    </div>
+        )
+      })}
+    </ul>
   )
 }

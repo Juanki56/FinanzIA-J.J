@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { Plus, Tags, Sparkles } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { ChevronRight, CircleHelp, Plus, Tags, Sparkles } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -8,7 +9,8 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { CategoryForm, type CategoryFormValues } from '@/components/categories/CategoryForm'
-import { CategoryTreeView } from '@/components/categories/CategoryTreeView'
+import { CategoryTreeView, MontoCategoria } from '@/components/categories/CategoryTreeView'
+import { DashboardFilters } from '@/components/dashboard/DashboardFilters'
 import { buildCategoryTree } from '@/utils/categoryTree'
 import {
   useActualizarCategoria,
@@ -19,6 +21,13 @@ import {
 import { ApiError } from '@/lib/apiClient'
 import { notifyError, notifySuccess } from '@/utils/toast'
 import { CATEGORIAS_SUGERIDAS } from '@/utils/meta'
+import { formatCurrency } from '@/utils/currency'
+import { etiquetaPeriodo, periodoAConsulta } from '@/utils/periodo'
+import { esFlujo, enPeriodo, resumenPorCategoria, totales, SIN_CATEGORIA } from '@/utils/flujos'
+import { useCuentas } from '@/hooks/useCuentas'
+import { useMovimientosRango } from '@/hooks/useMovimientos'
+import { useMe } from '@/hooks/useMe'
+import { usePeriodoUrl } from '@/hooks/usePeriodoUrl'
 import type { Categoria } from '@/types'
 
 export function CategoriesPage() {
@@ -33,6 +42,23 @@ export function CategoriesPage() {
   const [eliminando, setEliminando] = useState<Categoria | null>(null)
   const [sugerirDesactivar, setSugerirDesactivar] = useState<Categoria | null>(null)
   const [creandoSugeridas, setCreandoSugeridas] = useState(false)
+
+  const { data: usuario } = useMe()
+  const { data: cuentas } = useCuentas()
+  const { periodo, cuentaId, setPeriodo, setCuentaId, queryString } = usePeriodoUrl()
+  const consulta = periodoAConsulta(periodo)
+  const { data: movimientos, isFetching } = useMovimientosRango(consulta.desde, consulta.hasta)
+  const moneda = usuario?.moneda_principal ?? 'COP'
+
+  // Totales del periodo por categoría; cada padre incluye a sus subcategorías.
+  const { resumen, totalesPeriodo } = useMemo(() => {
+    const flujos = enPeriodo(
+      (movimientos ?? []).filter((m) => esFlujo(m) && (!cuentaId || m.cuenta_id === cuentaId)),
+      periodo
+    )
+    return { resumen: resumenPorCategoria(flujos, categorias ?? []), totalesPeriodo: totales(flujos) }
+  }, [movimientos, cuentaId, periodo, categorias])
+  const sinCategoria = resumen.get(SIN_CATEGORIA)
 
   const nodos = buildCategoryTree(categorias)
   const raices = (categorias ?? []).filter((c) => !c.categoria_padre_id)
@@ -183,15 +209,54 @@ export function CategoriesPage() {
           }
         />
       ) : (
-        <Card className="p-2">
-          <CategoryTreeView
-            nodos={nodos}
-            onEdit={abrirEditar}
-            onAddChild={abrirCrear}
-            onToggleActiva={onToggleActiva}
-            onDelete={onDelete}
+        <div className="flex flex-col gap-4">
+          <DashboardFilters
+            periodo={periodo}
+            onPeriodoChange={setPeriodo}
+            cuentaId={cuentaId}
+            onCuentaChange={setCuentaId}
+            cuentas={(cuentas ?? []).filter((c) => c.activa)}
           />
-        </Card>
+
+          <p className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-sm text-ink-400">
+            <span>{etiquetaPeriodo(periodo)}:</span>
+            <span>
+              Gastos <strong className="font-tabular font-semibold text-ink-100">{formatCurrency(totalesPeriodo.gastos, moneda)}</strong>
+            </span>
+            <span>
+              Ingresos <strong className="font-tabular font-semibold text-ink-100">{formatCurrency(totalesPeriodo.ingresos, moneda)}</strong>
+            </span>
+            <span className="text-ink-500">Toca una categoría para ver su detalle.</span>
+          </p>
+
+          <Card className={`p-2 transition-opacity ${isFetching ? 'opacity-60' : ''}`}>
+            <CategoryTreeView
+              nodos={nodos}
+              onEdit={abrirEditar}
+              onAddChild={abrirCrear}
+              onToggleActiva={onToggleActiva}
+              onDelete={onDelete}
+              resumen={resumen}
+              moneda={moneda}
+              hrefDetalle={(c) => `/categorias/${c.id}${queryString}`}
+            />
+            {sinCategoria && (
+              <div className="border-t border-white/5 py-1">
+                <Link
+                  to={`/categorias/${SIN_CATEGORIA}${queryString}`}
+                  className="group flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-white/[0.03]"
+                >
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.06]">
+                    <CircleHelp className="size-4 text-ink-400" />
+                  </div>
+                  <span className="flex-1 text-sm font-medium text-ink-300">Sin categoría</span>
+                  <MontoCategoria categoria={{ tipo: 'both' }} resumen={sinCategoria} moneda={moneda} />
+                  <ChevronRight className="size-4 text-ink-500 group-hover:text-ink-200" aria-hidden />
+                </Link>
+              </div>
+            )}
+          </Card>
+        </div>
       )}
 
       <Modal
