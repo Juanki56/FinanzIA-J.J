@@ -2,6 +2,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Input, Select } from '@/components/ui/Field'
+import { MoneyInput } from '@/components/ui/MoneyInput'
 import { Button } from '@/components/ui/Button'
 import { todayISO } from '@/utils/date'
 import type { Categoria, Presupuesto } from '@/types'
@@ -28,6 +29,7 @@ interface BudgetFormProps {
 export function BudgetForm({ presupuesto, categorias, onSubmit, onCancel, submitting }: BudgetFormProps) {
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors },
   } = useForm<BudgetFormValues>({
@@ -59,7 +61,7 @@ export function BudgetForm({ presupuesto, categorias, onSubmit, onCancel, submit
       </Select>
 
       <div className="grid grid-cols-2 gap-4">
-        <Input label="Monto límite" type="number" step="0.01" required error={errors.monto_limite?.message} {...register('monto_limite')} />
+        <MoneyInput control={control} name="monto_limite" label="Monto límite" required error={errors.monto_limite?.message} />
         <Select label="Periodo" required error={errors.periodo?.message} {...register('periodo')}>
           <option value="weekly">Semanal</option>
           <option value="monthly">Mensual</option>

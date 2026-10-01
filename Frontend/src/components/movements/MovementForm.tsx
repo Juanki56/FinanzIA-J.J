@@ -2,6 +2,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Input, Select, Textarea } from '@/components/ui/Field'
+import { MoneyInput } from '@/components/ui/MoneyInput'
 import { Button } from '@/components/ui/Button'
 import { buildCategoryOptions } from '@/utils/categoryTree'
 import { dateOnlyLocal, todayISO } from '@/utils/date'
@@ -43,6 +44,7 @@ export function MovementForm({
 
   const {
     register,
+    control,
     handleSubmit,
     watch,
     formState: { errors },
@@ -110,7 +112,7 @@ export function MovementForm({
       )}
 
       <div className="grid grid-cols-2 gap-4">
-        <Input label="Monto" type="number" step="0.01" required error={errors.monto?.message} {...register('monto')} />
+        <MoneyInput control={control} name="monto" label="Monto" required error={errors.monto?.message} />
         <Input label="Fecha" type="date" required error={errors.fecha_movimiento?.message} {...register('fecha_movimiento')} />
       </div>
 

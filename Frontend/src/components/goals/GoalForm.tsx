@@ -2,6 +2,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Input, Select, Textarea } from '@/components/ui/Field'
+import { MoneyInput } from '@/components/ui/MoneyInput'
 import { Button } from '@/components/ui/Button'
 import type { ObjetivoAhorro } from '@/types'
 
@@ -25,6 +26,7 @@ interface GoalFormProps {
 export function GoalForm({ objetivo, onSubmit, onCancel, submitting }: GoalFormProps) {
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors },
   } = useForm<GoalFormValues>({
@@ -47,7 +49,7 @@ export function GoalForm({ objetivo, onSubmit, onCancel, submitting }: GoalFormP
       <Textarea label="Descripción" placeholder="Opcional" error={errors.descripcion?.message} {...register('descripcion')} />
 
       <div className="grid grid-cols-2 gap-4">
-        <Input label="Monto objetivo" type="number" step="0.01" required error={errors.monto_objetivo?.message} {...register('monto_objetivo')} />
+        <MoneyInput control={control} name="monto_objetivo" label="Monto objetivo" required error={errors.monto_objetivo?.message} />
         <Input label="Fecha objetivo" type="date" hint="Opcional" error={errors.fecha_objetivo?.message} {...register('fecha_objetivo')} />
       </div>
 

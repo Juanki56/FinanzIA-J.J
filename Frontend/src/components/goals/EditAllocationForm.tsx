@@ -1,7 +1,8 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Input, Textarea } from '@/components/ui/Field'
+import { Textarea } from '@/components/ui/Field'
+import { MoneyInput } from '@/components/ui/MoneyInput'
 import { Button } from '@/components/ui/Button'
 import type { AsignacionObjetivo, Cuenta } from '@/types'
 
@@ -22,6 +23,7 @@ interface EditAllocationFormProps {
 export function EditAllocationForm({ asignacion, cuenta, onSubmit, onCancel, submitting }: EditAllocationFormProps) {
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors },
   } = useForm<EditAllocationFormValues>({
@@ -35,7 +37,7 @@ export function EditAllocationForm({ asignacion, cuenta, onSubmit, onCancel, sub
         Cuenta: <span className="font-medium text-ink-200">{cuenta?.nombre ?? 'Cuenta'}</span>{' '}
         <span className="text-xs text-ink-500">(no se puede cambiar; borra y crea otra si necesitas otra cuenta)</span>
       </p>
-      <Input label="Monto reservado" type="number" step="0.01" required error={errors.monto_asignado?.message} {...register('monto_asignado')} />
+      <MoneyInput control={control} name="monto_asignado" label="Monto reservado" required error={errors.monto_asignado?.message} />
       <Textarea label="Notas" placeholder="Opcional" error={errors.notas?.message} {...register('notas')} />
       <div className="mt-2 flex justify-end gap-2">
         <Button type="button" variant="ghost" onClick={onCancel}>

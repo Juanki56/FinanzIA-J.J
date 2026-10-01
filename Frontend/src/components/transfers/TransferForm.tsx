@@ -2,6 +2,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Input, Select, Textarea } from '@/components/ui/Field'
+import { MoneyInput } from '@/components/ui/MoneyInput'
 import { Button } from '@/components/ui/Button'
 import { todayISO } from '@/utils/date'
 import type { Cuenta } from '@/types'
@@ -30,6 +31,7 @@ interface TransferFormProps {
 export function TransferForm({ cuentas, onSubmit, onCancel, submitting }: TransferFormProps) {
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors },
   } = useForm<TransferFormValues>({
@@ -61,7 +63,7 @@ export function TransferForm({ cuentas, onSubmit, onCancel, submitting }: Transf
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <Input label="Monto" type="number" step="0.01" required error={errors.monto?.message} {...register('monto')} />
+        <MoneyInput control={control} name="monto" label="Monto" required error={errors.monto?.message} />
         <Input label="Fecha" type="date" required error={errors.fecha_transferencia?.message} {...register('fecha_transferencia')} />
       </div>
 

@@ -2,6 +2,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Input, Select, Textarea } from '@/components/ui/Field'
+import { MoneyInput } from '@/components/ui/MoneyInput'
 import { Button } from '@/components/ui/Button'
 import { CUENTA_TIPO_META } from '@/utils/meta'
 import type { Cuenta, TipoCuenta } from '@/types'
@@ -38,6 +39,7 @@ export function AccountForm({ cuenta, monedaDefault = 'COP', onSubmit, onCancel,
   const isEdit = !!cuenta
   const {
     register,
+    control,
     handleSubmit,
     watch,
     formState: { errors },
@@ -87,28 +89,20 @@ export function AccountForm({ cuenta, monedaDefault = 'COP', onSubmit, onCancel,
       <Input label="Institución" placeholder="Opcional" error={errors.institucion?.message} {...register('institucion')} />
 
       {isEdit ? (
-        <Input
+        <MoneyInput control={control} name="saldo_actual" permitirNegativo
           label={cuenta.es_pasivo ? 'Deuda actual' : 'Saldo actual'}
-          type="number"
-          step="0.01"
           hint="Si lo cambias, se registra un ajuste de saldo en Movimientos por la diferencia."
-          error={errors.saldo_actual?.message}
-          {...register('saldo_actual')}
-        />
+          error={errors.saldo_actual?.message} />
       ) : (
-        <Input
+        <MoneyInput control={control} name="saldo_inicial" permitirNegativo
           label="Saldo inicial"
-          type="number"
-          step="0.01"
           hint="Después podrás corregirlo editando la cuenta; quedará como ajuste en Movimientos."
-          error={errors.saldo_inicial?.message}
-          {...register('saldo_inicial')}
-        />
+          error={errors.saldo_inicial?.message} />
       )}
 
       {esCredito && (
         <div className="grid grid-cols-3 gap-4">
-          <Input label="Límite de crédito" type="number" step="0.01" error={errors.limite_credito?.message} {...register('limite_credito')} />
+          <MoneyInput control={control} name="limite_credito" label="Límite de crédito" error={errors.limite_credito?.message} />
           <Input label="Día de corte" type="number" min={1} max={31} error={errors.dia_corte?.message} {...register('dia_corte')} />
           <Input label="Día de pago" type="number" min={1} max={31} error={errors.dia_pago?.message} {...register('dia_pago')} />
         </div>

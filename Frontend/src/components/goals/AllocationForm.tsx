@@ -1,7 +1,8 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Input, Select, Textarea } from '@/components/ui/Field'
+import { Select, Textarea } from '@/components/ui/Field'
+import { MoneyInput } from '@/components/ui/MoneyInput'
 import { Button } from '@/components/ui/Button'
 import type { Cuenta } from '@/types'
 
@@ -22,6 +23,7 @@ interface AllocationFormProps {
 export function AllocationForm({ cuentas, onSubmit, onCancel, submitting }: AllocationFormProps) {
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors },
   } = useForm<AllocationFormValues>({ resolver: zodResolver(schema) })
@@ -42,7 +44,7 @@ export function AllocationForm({ cuentas, onSubmit, onCancel, submitting }: Allo
             </option>
           ))}
       </Select>
-      <Input label="Monto reservado" type="number" step="0.01" required error={errors.monto_asignado?.message} {...register('monto_asignado')} />
+      <MoneyInput control={control} name="monto_asignado" label="Monto reservado" required error={errors.monto_asignado?.message} />
       <Textarea label="Notas" placeholder="Opcional" error={errors.notas?.message} {...register('notas')} />
       <div className="mt-2 flex justify-end gap-2">
         <Button type="button" variant="ghost" onClick={onCancel}>

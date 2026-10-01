@@ -2,6 +2,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Input, Select, Textarea } from '@/components/ui/Field'
+import { MoneyInput } from '@/components/ui/MoneyInput'
 import { Button } from '@/components/ui/Button'
 import { buildCategoryOptions } from '@/utils/categoryTree'
 import { DIAS_SEMANA, todayISO } from '@/utils/date'
@@ -45,6 +46,7 @@ interface RecurringFormProps {
 export function RecurringForm({ recurrente, cuentas, categorias, onSubmit, onCancel, submitting }: RecurringFormProps) {
   const {
     register,
+    control,
     handleSubmit,
     watch,
     formState: { errors },
@@ -107,8 +109,8 @@ export function RecurringForm({ recurrente, cuentas, categorias, onSubmit, onCan
       </Select>
 
       <div className="grid grid-cols-2 gap-4">
-        <Input label="Monto estimado" type="number" step="0.01" required error={errors.monto_estimado?.message} {...register('monto_estimado')} />
-        <Input label="Tolerancia de monto" type="number" step="0.01" hint="Opcional, para variaciones" error={errors.tolerancia_monto?.message} {...register('tolerancia_monto')} />
+        <MoneyInput control={control} name="monto_estimado" label="Monto estimado" required error={errors.monto_estimado?.message} />
+        <MoneyInput control={control} name="tolerancia_monto" label="Tolerancia de monto" hint="Opcional, para variaciones" error={errors.tolerancia_monto?.message} />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
