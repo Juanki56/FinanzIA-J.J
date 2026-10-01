@@ -110,3 +110,66 @@ export async function actualizarCuenta(req: Request, res: Response) {
 
   res.json({ cuenta: data });
 }
+/** POST /api/cuentas/:id/ajustar-saldo — lleva saldo_actual a `saldo_nuevo`
+ * creando un movimiento tipo 'adjustment' por la diferencia. El saldo nunca se
+ * escribe directamente: así el cambio queda auditado en movimientos como
+ * cualquier otro. */
+export async function ajustarSaldoCuenta(req: Request, res: Response) {
+  const { id } = req.params;
+  const saldoNuevo = Number(req.body?.saldo_nuevo);
+
+  if (req.body?.saldo_nuevo === undefined || req.body?.saldo_nuevo === '' || Number.isNaN(saldoNuevo)) {
+    return res.status(400).json({ error: 'saldo_nuevo debe ser un número' });
+  }
+
+  const { data: cuenta, error: errorCuenta } = await req.supabase
+    .from('cuentas')
+    .select('id, saldo_actual, moneda')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (errorCuenta) {
+    return res.status(500).json({ error: 'Error al consultar la cuenta' });
+  }
+  if (!cuenta) {
+    return res.status(404).json({ error: 'Cuenta no encontrada' });
+  }
+
+  const saldoAnterior = Number(cuenta.saldo_actual);
+  // Redondeo a centavos para que errores de coma flotante no generen ajustes fantasma.
+  const diferencia = Math.round((saldoNuevo - saldoAnterior) * 100) / 100;
+
+  if (diferencia === 0) {
+    return res.status(400).json({ error: 'El saldo nuevo es igual al saldo actual, no hay nada que ajustar' });
+  }
+
+  const { data: movimiento, error: errorMovimiento } = await req.supabase
+    .from('movimientos')
+    .insert({
+      usuario_id: req.usuario.id,
+      cuenta_id: id,
+      tipo: 'adjustment',
+      signo: diferencia > 0 ? 1 : -1,
+      monto: Math.abs(diferencia),
+      estado: 'confirmed',
+      descripcion: `Ajuste manual de saldo: ${saldoAnterior} → ${saldoNuevo} ${cuenta.moneda}`,
+    })
+    .select()
+    .single();
+
+  if (errorMovimiento) {
+    return res.status(500).json({ error: 'Error al registrar el ajuste de saldo', detalle: errorMovimiento.message });
+  }
+
+  // Los saldos los recalcula la base de datos; se relee la cuenta para
+  // confirmar que el ajuste dejó el saldo donde el usuario pidió.
+  const { data: cuentaActualizada } = await req.supabase
+    .from('cuentas')
+    .select('id, nombre, tipo, moneda, saldo_inicial, saldo_actual, activa, institucion, es_pasivo')
+    .eq('id', id)
+    .single();
+
+  const cuadra = cuentaActualizada ? Math.abs(Number(cuentaActualizada.saldo_actual) - saldoNuevo) < 0.005 : false;
+
+  res.status(201).json({ cuenta: cuentaActualizada, movimiento, cuadra });
+}

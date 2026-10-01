@@ -41,3 +41,17 @@ export function useActualizarCuenta() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['cuentas'] }),
   })
 }
+
+/** Ajusta el saldo creando un movimiento 'adjustment' por la diferencia, así el
+ * cambio queda registrado en Movimientos. */
+export function useAjustarSaldoCuenta() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, saldoNuevo }: { id: string; saldoNuevo: number }) =>
+      api.post<{ cuenta: Cuenta; cuadra: boolean }>(`/cuentas/${id}/ajustar-saldo`, { saldo_nuevo: saldoNuevo }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cuentas'] })
+      qc.invalidateQueries({ queryKey: ['movimientos'] })
+    },
+  })
+}

@@ -6,17 +6,22 @@ import { Button } from '@/components/ui/Button'
 import { CUENTA_TIPO_META } from '@/utils/meta'
 import type { Cuenta, TipoCuenta } from '@/types'
 
+// z.literal('') va primero: si z.coerce.number() fuera primero, un campo vacío
+// se convertiría en 0 (y la base de datos rechaza dia_corte/dia_pago = 0).
+const numeroOpcional = z.union([z.literal(''), z.coerce.number()]).optional()
+
 const schema = z.object({
   nombre: z.string().min(1, 'Ponle un nombre a la cuenta'),
   tipo: z.custom<TipoCuenta>((v) => typeof v === 'string' && v.length > 0, 'Elige un tipo'),
   institucion: z.string().optional(),
   moneda: z.string().min(1, 'Requerido').max(3, 'Usa el código de 3 letras, ej. COP'),
   saldo_inicial: z.coerce.number().optional(),
+  saldo_actual: numeroOpcional,
   es_pasivo: z.boolean().optional(),
   incluir_en_saldo_total: z.boolean().optional(),
-  limite_credito: z.union([z.coerce.number(), z.literal('')]).optional(),
-  dia_corte: z.union([z.coerce.number(), z.literal('')]).optional(),
-  dia_pago: z.union([z.coerce.number(), z.literal('')]).optional(),
+  limite_credito: numeroOpcional,
+  dia_corte: z.union([z.literal(''), z.coerce.number().int().min(1, 'Entre 1 y 31').max(31, 'Entre 1 y 31')]).optional(),
+  dia_pago: z.union([z.literal(''), z.coerce.number().int().min(1, 'Entre 1 y 31').max(31, 'Entre 1 y 31')]).optional(),
   notas: z.string().optional(),
 })
 export type AccountFormValues = z.infer<typeof schema>
@@ -44,6 +49,7 @@ export function AccountForm({ cuenta, monedaDefault = 'COP', onSubmit, onCancel,
           tipo: cuenta.tipo,
           institucion: cuenta.institucion ?? '',
           moneda: cuenta.moneda,
+          saldo_actual: cuenta.saldo_actual,
           es_pasivo: cuenta.es_pasivo,
           incluir_en_saldo_total: cuenta.incluir_en_saldo_total ?? true,
           limite_credito: cuenta.limite_credito ?? '',
@@ -80,12 +86,21 @@ export function AccountForm({ cuenta, monedaDefault = 'COP', onSubmit, onCancel,
 
       <Input label="Institución" placeholder="Opcional" error={errors.institucion?.message} {...register('institucion')} />
 
-      {!isEdit && (
+      {isEdit ? (
+        <Input
+          label={cuenta.es_pasivo ? 'Deuda actual' : 'Saldo actual'}
+          type="number"
+          step="0.01"
+          hint="Si lo cambias, se registra un ajuste de saldo en Movimientos por la diferencia."
+          error={errors.saldo_actual?.message}
+          {...register('saldo_actual')}
+        />
+      ) : (
         <Input
           label="Saldo inicial"
           type="number"
           step="0.01"
-          hint="No se podrá cambiar después de crear la cuenta."
+          hint="Después podrás corregirlo editando la cuenta; quedará como ajuste en Movimientos."
           error={errors.saldo_inicial?.message}
           {...register('saldo_inicial')}
         />

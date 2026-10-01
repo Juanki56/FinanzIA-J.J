@@ -8,7 +8,7 @@ import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { AccountCard } from '@/components/accounts/AccountCard'
 import { AccountForm, type AccountFormValues } from '@/components/accounts/AccountForm'
-import { useActualizarCuenta, useCrearCuenta, useCuentas, type EditarCuentaInput, type NuevaCuentaInput } from '@/hooks/useCuentas'
+import { useActualizarCuenta, useAjustarSaldoCuenta, useCrearCuenta, useCuentas, type EditarCuentaInput, type NuevaCuentaInput } from '@/hooks/useCuentas'
 import { useMe } from '@/hooks/useMe'
 import { notifyError, notifySuccess } from '@/utils/toast'
 import type { Cuenta } from '@/types'
@@ -22,6 +22,7 @@ export function AccountsPage() {
   const { data: usuario } = useMe()
   const crear = useCrearCuenta()
   const actualizar = useActualizarCuenta()
+  const ajustarSaldo = useAjustarSaldoCuenta()
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editando, setEditando] = useState<Cuenta | null>(null)
@@ -54,16 +55,33 @@ export function AccountsPage() {
 
     if (editando) {
       const cambios: EditarCuentaInput = base
-      actualizar.mutate(
-        { id: editando.id, cambios },
-        {
-          onSuccess: () => {
+      // Saldo vacío = no tocar el saldo (no llevarlo a 0).
+      const saldoNuevo = limpiarNumero(values.saldo_actual)
+      const cambiaSaldo =
+        saldoNuevo !== undefined && Math.round((saldoNuevo - editando.saldo_actual) * 100) !== 0
+      const cuentaId = editando.id
+
+      void (async () => {
+        try {
+          await actualizar.mutateAsync({ id: cuentaId, cambios })
+          if (cambiaSaldo) {
+            const { cuadra } = await ajustarSaldo.mutateAsync({ id: cuentaId, saldoNuevo })
+            if (cuadra) {
+              notifySuccess('¡Cuenta actualizada! El ajuste de saldo quedó registrado en Movimientos ✨')
+            } else {
+              notifyError(
+                null,
+                'Se registró el ajuste en Movimientos, pero el saldo no quedó en el valor esperado. Revisa la cuenta.'
+              )
+            }
+          } else {
             notifySuccess('¡Cuenta actualizada! ✨')
-            setModalOpen(false)
-          },
-          onError: (err) => notifyError(err),
+          }
+          setModalOpen(false)
+        } catch (err) {
+          notifyError(err)
         }
-      )
+      })()
     } else {
       const input: NuevaCuentaInput = { ...base, saldo_inicial: values.saldo_inicial ?? 0 }
       crear.mutate(input, {
@@ -152,7 +170,7 @@ export function AccountsPage() {
           monedaDefault={usuario?.moneda_principal}
           onSubmit={onSubmit}
           onCancel={() => setModalOpen(false)}
-          submitting={crear.isPending || actualizar.isPending}
+          submitting={crear.isPending || actualizar.isPending || ajustarSaldo.isPending}
         />
       </Modal>
 
