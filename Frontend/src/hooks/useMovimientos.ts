@@ -7,16 +7,36 @@ import type { Movimiento, MovimientosPage } from '@/types'
 // cálculo de racha) en vez de una página paginada para navegar.
 export const LIMITE_MAXIMO_MOVIMIENTOS = 200
 
-export function useMovimientos(opts?: { incluirEliminados?: boolean; pagina?: number; limite?: number }) {
+/** Filtros que aplica el backend. `desde` inclusivo / `hasta` exclusivo, timestamps ISO. */
+export interface FiltrosMovimientos {
+  cuentaId?: string
+  categoriaId?: string
+  tipo?: string
+  desde?: string
+  hasta?: string
+}
+
+export function useMovimientos(opts?: {
+  incluirEliminados?: boolean
+  pagina?: number
+  limite?: number
+  filtros?: FiltrosMovimientos
+}) {
   const incluirEliminados = opts?.incluirEliminados ?? false
   const pagina = opts?.pagina ?? 1
   const limite = opts?.limite ?? 20
+  const filtros = opts?.filtros ?? {}
 
   return useQuery({
-    queryKey: ['movimientos', { incluirEliminados, pagina, limite }],
+    queryKey: ['movimientos', { incluirEliminados, pagina, limite, filtros }],
     queryFn: () => {
       const params = new URLSearchParams({ pagina: String(pagina), limite: String(limite) })
       if (incluirEliminados) params.set('incluir_eliminados', 'true')
+      if (filtros.cuentaId) params.set('cuenta_id', filtros.cuentaId)
+      if (filtros.categoriaId) params.set('categoria_id', filtros.categoriaId)
+      if (filtros.tipo) params.set('tipo', filtros.tipo)
+      if (filtros.desde) params.set('desde', filtros.desde)
+      if (filtros.hasta) params.set('hasta', filtros.hasta)
       return api.get<MovimientosPage>(`/movimientos?${params.toString()}`)
     },
     placeholderData: keepPreviousData,
@@ -27,6 +47,34 @@ export function useMovimientos(opts?: { incluirEliminados?: boolean; pagina?: nu
 export function useTodosLosMovimientos(opts?: { incluirEliminados?: boolean }) {
   const { data, ...rest } = useMovimientos({ ...opts, pagina: 1, limite: LIMITE_MAXIMO_MOVIMIENTOS })
   return { ...rest, data: data?.movimientos as Movimiento[] | undefined }
+}
+
+/**
+ * Trae TODOS los movimientos con fecha_movimiento en [desde, hasta) (timestamps
+ * ISO), recorriendo las páginas del backend. A diferencia de
+ * useTodosLosMovimientos no se corta en los 200 más recientes, así que sirve
+ * para mirar meses anteriores.
+ */
+export function useMovimientosRango(desde: string, hasta: string) {
+  return useQuery({
+    queryKey: ['movimientos', 'rango', { desde, hasta }],
+    queryFn: async () => {
+      const todos: Movimiento[] = []
+      for (let pagina = 1; ; pagina++) {
+        const params = new URLSearchParams({
+          pagina: String(pagina),
+          limite: String(LIMITE_MAXIMO_MOVIMIENTOS),
+          desde,
+          hasta,
+        })
+        const res = await api.get<MovimientosPage>(`/movimientos?${params.toString()}`)
+        todos.push(...res.movimientos)
+        if (pagina >= res.paginacion.total_paginas) break
+      }
+      return todos
+    },
+    placeholderData: keepPreviousData,
+  })
 }
 
 export type NuevoMovimientoInput = {

@@ -18,10 +18,12 @@ import {
   useActualizarMovimiento,
   useEliminarMovimiento,
   useMovimientos,
+  type FiltrosMovimientos,
   type NuevoMovimientoInput,
 } from '@/hooks/useMovimientos'
 import { notifyError, notifySuccess } from '@/utils/toast'
-import { dateOnlyLocal, localDateInputToUtcIso } from '@/utils/date'
+import { localDateInputToUtcIso } from '@/utils/date'
+import { periodoAConsulta } from '@/utils/periodo'
 import type { Movimiento } from '@/types'
 
 const FILTROS_VACIOS: MovementFiltersState = { cuentaId: '', categoriaId: '', tipo: '', desde: '', hasta: '' }
@@ -29,7 +31,29 @@ const LIMITE_POR_PAGINA = 20
 
 export function MovementsPage() {
   const [pagina, setPagina] = useState(1)
-  const { data, isLoading: cargandoMovs, isPlaceholderData } = useMovimientos({ pagina, limite: LIMITE_POR_PAGINA })
+  const [filtros, setFiltros] = useState<MovementFiltersState>(FILTROS_VACIOS)
+
+  // Los filtros los aplica el backend, así la paginación cuenta solo lo filtrado.
+  // Las fechas del filtro son días locales; se convierten al rango con hora.
+  const filtrosApi = useMemo<FiltrosMovimientos>(() => {
+    const rango =
+      filtros.desde || filtros.hasta
+        ? periodoAConsulta({ desde: filtros.desde || '1970-01-01', hasta: filtros.hasta || '9999-12-31' })
+        : null
+    return {
+      cuentaId: filtros.cuentaId,
+      categoriaId: filtros.categoriaId,
+      tipo: filtros.tipo,
+      desde: filtros.desde ? rango?.desde : undefined,
+      hasta: filtros.hasta ? rango?.hasta : undefined,
+    }
+  }, [filtros])
+
+  const { data, isLoading: cargandoMovs, isPlaceholderData } = useMovimientos({
+    pagina,
+    limite: LIMITE_POR_PAGINA,
+    filtros: filtrosApi,
+  })
   const movimientos = data?.movimientos
   const paginacion = data?.paginacion
   const { data: cuentas, isLoading: cargandoCuentas } = useCuentas()
@@ -39,7 +63,6 @@ export function MovementsPage() {
   const actualizar = useActualizarMovimiento()
   const eliminar = useEliminarMovimiento()
 
-  const [filtros, setFiltros] = useState<MovementFiltersState>(FILTROS_VACIOS)
   const [modalOpen, setModalOpen] = useState(false)
   const [editando, setEditando] = useState<Movimiento | null>(null)
   const [eliminando, setEliminando] = useState<Movimiento | null>(null)
@@ -51,19 +74,10 @@ export function MovementsPage() {
 
   function actualizarFiltros(nuevos: MovementFiltersState) {
     setFiltros(nuevos)
-    setPagina(1) // los filtros se aplican solo dentro de la página actual, así que volvemos a la 1
+    setPagina(1)
   }
 
-  const filtrados = useMemo(() => {
-    return (movimientos ?? []).filter((m) => {
-      if (filtros.cuentaId && m.cuenta_id !== filtros.cuentaId) return false
-      if (filtros.categoriaId && m.categoria_id !== filtros.categoriaId) return false
-      if (filtros.tipo && m.tipo !== filtros.tipo) return false
-      if (filtros.desde && dateOnlyLocal(m.fecha_movimiento) < filtros.desde) return false
-      if (filtros.hasta && dateOnlyLocal(m.fecha_movimiento) > filtros.hasta) return false
-      return true
-    })
-  }, [movimientos, filtros])
+  const filtrados = movimientos ?? []
 
   const hayFiltrosActivos = Object.values(filtros).some(Boolean)
 
@@ -90,7 +104,13 @@ export function MovementsPage() {
 
     if (editando) {
       actualizar.mutate(
-        { id: editando.id, cambios: payloadBase },
+        {
+          id: editando.id,
+          cambios: {
+            ...payloadBase,
+            ...(values.cuenta_id !== editando.cuenta_id ? { cuenta_id: values.cuenta_id } : {}),
+          },
+        },
         {
           onSuccess: () => {
             notifySuccess('¡Movimiento actualizado! ✅')
@@ -139,24 +159,19 @@ export function MovementsPage() {
         }
       />
 
-      <Card className="mb-2">
+      <Card className="mb-4">
         <MovementFilters value={filtros} onChange={actualizarFiltros} cuentas={cuentas ?? []} categorias={categorias ?? []} />
       </Card>
-      {hayFiltrosActivos && (
-        <p className="mb-4 text-xs text-ink-500">
-          Los filtros se aplican solo dentro de la página actual de resultados.
-        </p>
-      )}
 
       {cargando ? (
         <Spinner />
       ) : filtrados.length === 0 ? (
         <EmptyState
           icon={<Receipt className="size-6" />}
-          title={movimientos?.length ? 'Nada coincide con estos filtros' : 'Todavía no tienes movimientos'}
-          description={movimientos?.length ? 'Prueba ajustando los filtros de arriba o cambiando de página.' : 'Registra tu primer ingreso o gasto para empezar.'}
+          title={hayFiltrosActivos ? 'Nada coincide con estos filtros' : 'Todavía no tienes movimientos'}
+          description={hayFiltrosActivos ? 'Prueba ajustando los filtros de arriba.' : 'Registra tu primer ingreso o gasto para empezar.'}
           action={
-            !movimientos?.length ? (
+            !hayFiltrosActivos ? (
               <Button onClick={abrirCrear}>
                 <Plus className="size-4" />
                 Registrar el primero

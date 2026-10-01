@@ -70,12 +70,14 @@ export function MovementForm({
 
   const tipo = watch('tipo')
   const categoriaOptions = buildCategoryOptions(categorias, tipo === 'adjustment' ? undefined : tipo)
-  const cuentasActivas = cuentas.filter((c) => c.activa)
+  // Al editar se incluye la cuenta actual aunque esté archivada, para que el
+  // select no quede vacío y no se cambie de cuenta sin querer.
+  const cuentasActivas = cuentas.filter((c) => c.activa || c.id === movimiento?.cuenta_id)
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4">
-        <Select label="Cuenta" required disabled={isEdit} error={errors.cuenta_id?.message} {...register('cuenta_id')}>
+        <Select label="Cuenta" required error={errors.cuenta_id?.message} {...register('cuenta_id')}>
           <option value="">Elige una cuenta</option>
           {cuentasActivas.map((c) => (
             <option key={c.id} value={c.id}>

@@ -22,6 +22,31 @@ export async function listarMovimientos(req: Request, res: Response) {
     query = query.eq('eliminado', false);
   }
 
+  // Rango opcional sobre fecha_movimiento: `desde` inclusivo, `hasta` exclusivo,
+  // ambos timestamps ISO. El frontend los arma en hora local (ver utils/date).
+  for (const param of ['desde', 'hasta'] as const) {
+    const valor = req.query[param];
+    if (valor === undefined) continue;
+    if (typeof valor !== 'string' || Number.isNaN(Date.parse(valor))) {
+      return res.status(400).json({ error: `${param} debe ser una fecha ISO válida` });
+    }
+    query = param === 'desde' ? query.gte('fecha_movimiento', valor) : query.lt('fecha_movimiento', valor);
+  }
+
+  // Filtros opcionales por igualdad. Se aplican aquí (no en el frontend) para
+  // que la paginación cuente solo los resultados filtrados.
+  for (const campo of ['cuenta_id', 'categoria_id', 'tipo'] as const) {
+    const valor = req.query[campo];
+    if (valor === undefined || valor === '') continue;
+    if (typeof valor !== 'string') {
+      return res.status(400).json({ error: `${campo} debe ser un único valor` });
+    }
+    if (campo === 'tipo' && ![...TIPOS_VALIDOS, 'transfer'].includes(valor)) {
+      return res.status(400).json({ error: `tipo debe ser uno de: ${[...TIPOS_VALIDOS, 'transfer'].join(', ')}` });
+    }
+    query = query.eq(campo, valor);
+  }
+
   const { data, error, count } = await query;
 
   if (error) {
