@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { google } from 'googleapis';
+import { google, type gmail_v1 } from 'googleapis';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { crearOAuthClient } from '../lib/google.js';
 import { parsearCorreoBancolombia, BANCOLOMBIA } from '../parsers/bancolombia.js';
@@ -7,6 +7,16 @@ import { buscarCategoriaPorReglas } from './categorizacion.service.js';
 
 // Si nunca se ha sincronizado esta conexión, cuánto atrás mirar la primera vez.
 const DIAS_LOOKBACK_PRIMERA_VEZ = 90;
+
+// En sincronizaciones siguientes, cuánto ANTES del cursor volver a mirar.
+// Gmail no indexa un correo para búsqueda en el instante en que llega (y el
+// banco a veces lo entrega tarde), así que si solo pidiéramos
+// `after:<última sincronización>`, un correo que no aparecía en la búsqueda
+// en ese momento quedaría fuera para siempre. Repetir la ventana es seguro:
+// el hash de contenido ya deduplica lo que se procesó antes.
+const DIAS_SOLAPAMIENTO = 3;
+
+const DIA_MS = 24 * 60 * 60 * 1000;
 
 interface TokensConexion {
   access_token: string;
@@ -123,20 +133,33 @@ export async function sincronizarConexion(ctx: ContextoSincronizacion): Promise<
   const gmail = await prepararClienteGmail(tokens, ctx.guardarTokens);
 
   // --- 2. Listar correos del banco, solo los que llegaron después de la última sincronización ---
-  const despuesUnix = ctx.ultimaSincronizacionAt
-    ? Math.floor(new Date(ctx.ultimaSincronizacionAt).getTime() / 1000)
-    : Math.floor((Date.now() - DIAS_LOOKBACK_PRIMERA_VEZ * 24 * 60 * 60 * 1000) / 1000);
+  // El cursor se toma al INICIO de la corrida, no al final: un correo que
+  // llegue mientras procesamos el lote debe quedar dentro de la próxima ventana.
+  const inicioCorrida = new Date().toISOString();
+  const despuesMs = ctx.ultimaSincronizacionAt
+    ? new Date(ctx.ultimaSincronizacionAt).getTime() - DIAS_SOLAPAMIENTO * DIA_MS
+    : Date.now() - DIAS_LOOKBACK_PRIMERA_VEZ * DIA_MS;
+  const despuesUnix = Math.floor(despuesMs / 1000);
 
   // Gmail entiende {from:a from:b} como OR entre remitentes -- un banco
   // puede notificar desde más de un dominio (ver nota en BANCOLOMBIA.remitentes).
   const filtroRemitentes = `{${BANCOLOMBIA.remitentes.map((r) => `from:${r}`).join(' ')}}`;
 
-  const listado = await gmail.users.messages.list({
-    userId: 'me',
-    q: `${filtroRemitentes} after:${despuesUnix}`,
-    maxResults: 50,
-  });
-  const mensajes = listado.data.messages ?? [];
+  // Paginamos: con solo la primera página, lo que pasara de maxResults
+  // quedaba fuera de la ventana sin que nadie lo volviera a pedir.
+  const mensajes: { id?: string | null }[] = [];
+  let pageToken: string | undefined;
+  do {
+    const params: gmail_v1.Params$Resource$Users$Messages$List = {
+      userId: 'me',
+      q: `${filtroRemitentes} after:${despuesUnix}`,
+      maxResults: 100,
+      ...(pageToken ? { pageToken } : {}),
+    };
+    const listado = await gmail.users.messages.list(params);
+    mensajes.push(...(listado.data.messages ?? []));
+    pageToken = listado.data.nextPageToken ?? undefined;
+  } while (pageToken);
 
   // Si guardar el correo crudo falla para AL MENOS uno del lote, no avanzamos
   // el cursor de "última sincronización" — así el próximo intento vuelve a
@@ -283,7 +306,7 @@ export async function sincronizarConexion(ctx: ContextoSincronizacion): Promise<
   }
 
   if (!huboErrorGuardandoFuente) {
-    await ctx.actualizarUltimaSincronizacion(new Date().toISOString());
+    await ctx.actualizarUltimaSincronizacion(inicioCorrida);
   }
 
   return resumen;
