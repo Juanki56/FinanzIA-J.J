@@ -227,9 +227,13 @@ const PLANTILLAS: PlantillaBancaria[] = [
 
 export const BANCOLOMBIA: RegistroBanco = {
   // Encontrado con un correo real del usuario: Bancolombia manda
-  // notificaciones transaccionales desde ambos dominios, no solo uno.
+  // notificaciones transaccionales desde más de un dominio, no solo uno.
+  // El de notificacionesbancolombia.com va como dominio solo, sin usuario ni
+  // subdominio, a propósito: ya llegaron alertas reales desde `an.` y desde
+  // `ayn.`. Con la dirección completa Gmail NO hace match del subdominio
+  // (verificado); con solo el dominio sí — así no se pierden si cambia otra vez.
   remitentes: [
-    'alertasynotificaciones@an.notificacionesbancolombia.com',
+    'notificacionesbancolombia.com',
     'alertasynotificaciones@bancolombia.com.co',
   ],
   plantillas: PLANTILLAS,
