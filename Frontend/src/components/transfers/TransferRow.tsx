@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { ArrowRight, Ban } from 'lucide-react'
+import { ArrowRight, Ban, Pencil } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/date'
@@ -10,12 +10,14 @@ interface TransferRowProps {
   transferencia: Transferencia
   origen?: Cuenta
   destino?: Cuenta
+  onEditar: () => void
   onCancelar: () => void
 }
 
-export function TransferRow({ transferencia, origen, destino, onCancelar }: TransferRowProps) {
+export function TransferRow({ transferencia, origen, destino, onEditar, onCancelar }: TransferRowProps) {
   const estadoMeta = TRANSFERENCIA_ESTADO_META[transferencia.estado]
-  const puedeCancelar = transferencia.estado !== 'cancelled'
+  // Una transferencia cancelada ya no se puede editar ni volver a cancelar
+  const activa = transferencia.estado !== 'cancelled'
 
   return (
     <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-3 rounded-xl px-3 py-3 hover:bg-white/[0.03]">
@@ -38,11 +40,16 @@ export function TransferRow({ transferencia, origen, destino, onCancelar }: Tran
         {formatCurrency(transferencia.monto, origen?.moneda)}
       </span>
 
-      <div className="w-9 shrink-0">
-        {puedeCancelar && (
-          <button onClick={onCancelar} className="rounded-lg p-2 text-ink-400 hover:bg-coral-500/15 hover:text-coral-400" aria-label="Cancelar transferencia">
-            <Ban className="size-4" />
-          </button>
+      <div className="flex w-[4.5rem] shrink-0 justify-end">
+        {activa && (
+          <>
+            <button onClick={onEditar} className="rounded-lg p-2 text-ink-400 hover:bg-white/8 hover:text-ink-100" aria-label="Editar transferencia">
+              <Pencil className="size-4" />
+            </button>
+            <button onClick={onCancelar} className="rounded-lg p-2 text-ink-400 hover:bg-coral-500/15 hover:text-coral-400" aria-label="Cancelar transferencia">
+              <Ban className="size-4" />
+            </button>
+          </>
         )}
       </div>
     </motion.div>

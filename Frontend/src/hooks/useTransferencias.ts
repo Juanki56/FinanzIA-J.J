@@ -40,3 +40,12 @@ export function useActualizarEstadoTransferencia() {
     onSuccess: () => invalidateAll(qc),
   })
 }
+
+export function useEditarTransferencia() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: NuevaTransferenciaInput & { id: string }) =>
+      api.patch<{ transferencia: Transferencia }>(`/transferencias/${id}`, input),
+    onSuccess: () => invalidateAll(qc),
+  })
+}

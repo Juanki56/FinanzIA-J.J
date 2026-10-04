@@ -4,8 +4,8 @@ import { z } from 'zod'
 import { Input, Select, Textarea } from '@/components/ui/Field'
 import { MoneyInput } from '@/components/ui/MoneyInput'
 import { Button } from '@/components/ui/Button'
-import { todayISO } from '@/utils/date'
-import type { Cuenta } from '@/types'
+import { dateOnlyLocal, todayISO } from '@/utils/date'
+import type { Cuenta, Transferencia } from '@/types'
 
 const schema = z
   .object({
@@ -22,13 +22,14 @@ const schema = z
 export type TransferFormValues = z.infer<typeof schema>
 
 interface TransferFormProps {
+  transferencia?: Transferencia
   cuentas: Cuenta[]
   onSubmit: (values: TransferFormValues) => void
   onCancel: () => void
   submitting?: boolean
 }
 
-export function TransferForm({ cuentas, onSubmit, onCancel, submitting }: TransferFormProps) {
+export function TransferForm({ transferencia, cuentas, onSubmit, onCancel, submitting }: TransferFormProps) {
   const {
     register,
     control,
@@ -36,10 +37,21 @@ export function TransferForm({ cuentas, onSubmit, onCancel, submitting }: Transf
     formState: { errors },
   } = useForm<TransferFormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { fecha_transferencia: todayISO() },
+    defaultValues: transferencia
+      ? {
+          cuenta_origen_id: transferencia.cuenta_origen_id,
+          cuenta_destino_id: transferencia.cuenta_destino_id,
+          monto: transferencia.monto,
+          descripcion: transferencia.descripcion ?? '',
+          fecha_transferencia: dateOnlyLocal(transferencia.fecha_transferencia),
+        }
+      : { fecha_transferencia: todayISO() },
   })
 
-  const activas = cuentas.filter((c) => c.activa)
+  // Al editar, las cuentas actuales siguen apareciendo aunque estén archivadas
+  const activas = cuentas.filter(
+    (c) => c.activa || c.id === transferencia?.cuenta_origen_id || c.id === transferencia?.cuenta_destino_id
+  )
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
@@ -74,7 +86,7 @@ export function TransferForm({ cuentas, onSubmit, onCancel, submitting }: Transf
           Cancelar
         </Button>
         <Button type="submit" loading={submitting}>
-          Transferir 🔁
+          {transferencia ? 'Guardar cambios' : 'Transferir 🔁'}
         </Button>
       </div>
     </form>
