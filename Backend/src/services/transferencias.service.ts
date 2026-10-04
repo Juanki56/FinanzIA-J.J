@@ -13,7 +13,8 @@ export async function crearTransferenciaAtomica(supabase: SupabaseClient, datos:
     p_cuenta_origen_id: datos.cuenta_origen_id,
     p_cuenta_destino_id: datos.cuenta_destino_id,
     p_monto: datos.monto,
-    p_descripcion: datos.descripcion ?? null,
+    // movimientos.descripcion es NOT NULL: sin descripción, la RPC falla con 23502
+    p_descripcion: datos.descripcion?.trim() || 'Transferencia',
     p_fecha_transferencia: datos.fecha_transferencia ?? new Date().toISOString().slice(0, 10),
   });
 }
