@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Menu, LogOut, Flame, ChevronDown, Settings } from 'lucide-react'
+import { Menu, LogOut, Calculator, ChevronDown, Settings } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useMe } from '@/hooks/useMe'
-import { useStreak } from '@/hooks/useStreak'
+import { CalculatorModal } from '@/components/calculator/CalculatorModal'
 import { AnimatePresence, motion } from 'framer-motion'
 
 export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   const { signOut } = useAuth()
   const { data: usuario } = useMe()
-  const racha = useStreak()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [calculadoraOpen, setCalculadoraOpen] = useState(false)
 
   const inicial = usuario?.nombre?.trim()?.[0]?.toUpperCase() ?? '🎮'
 
@@ -27,12 +27,14 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
       <div className="hidden md:block" />
 
       <div className="flex items-center gap-3">
-        {racha > 0 && (
-          <div className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500/20 to-coral-500/15 px-3 py-1.5 text-xs font-bold text-amber-300 ring-1 ring-amber-500/30">
-            <Flame className="size-3.5" />
-            {racha} {racha === 1 ? 'día' : 'días'} seguidos
-          </div>
-        )}
+        <button
+          onClick={() => setCalculadoraOpen(true)}
+          className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm text-ink-300 hover:bg-white/8 hover:text-ink-100"
+          aria-label="Abrir calculadora"
+        >
+          <Calculator className="size-4" />
+          <span className="hidden sm:inline">Calculadora</span>
+        </button>
 
         <div className="relative">
           <button
@@ -81,6 +83,8 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
           </AnimatePresence>
         </div>
       </div>
+
+      <CalculatorModal open={calculadoraOpen} onClose={() => setCalculadoraOpen(false)} />
     </header>
   )
 }

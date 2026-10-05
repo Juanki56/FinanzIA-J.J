@@ -3,8 +3,8 @@ import { api } from '@/lib/apiClient'
 import type { Movimiento, MovimientosPage } from '@/types'
 
 // El límite máximo que acepta el backend es 200. Lo usamos como "trae todo lo
-// que puedas" para vistas que necesitan el conjunto completo (dashboard,
-// cálculo de racha) en vez de una página paginada para navegar.
+// que puedas" para vistas que necesitan el conjunto completo (dashboard) en
+// vez de una página paginada para navegar.
 export const LIMITE_MAXIMO_MOVIMIENTOS = 200
 
 /** Filtros que aplica el backend. `desde` inclusivo / `hasta` exclusivo, timestamps ISO. */
@@ -43,17 +43,10 @@ export function useMovimientos(opts?: {
   })
 }
 
-/** Trae movimientos en bloque (hasta el límite máximo del backend), solo el arreglo. */
-export function useTodosLosMovimientos(opts?: { incluirEliminados?: boolean }) {
-  const { data, ...rest } = useMovimientos({ ...opts, pagina: 1, limite: LIMITE_MAXIMO_MOVIMIENTOS })
-  return { ...rest, data: data?.movimientos as Movimiento[] | undefined }
-}
-
 /**
  * Trae TODOS los movimientos con fecha_movimiento en [desde, hasta) (timestamps
- * ISO), recorriendo las páginas del backend. A diferencia de
- * useTodosLosMovimientos no se corta en los 200 más recientes, así que sirve
- * para mirar meses anteriores.
+ * ISO), recorriendo las páginas del backend — no se corta en una sola página,
+ * así que sirve para mirar meses anteriores.
  */
 export function useMovimientosRango(desde: string, hasta: string) {
   return useQuery({
