@@ -20,6 +20,12 @@ export async function listarFuentes(req: Request, res: Response) {
     query = query.eq('estado_procesamiento', String(estado));
   }
 
+  // ?sin_revisar=true deja fuera los que el usuario ya descartó a mano (ver
+  // descartarFuente) — es la bandeja de "correos sin reconocer" del frontend.
+  if (req.query.sin_revisar === 'true') {
+    query = query.or('metadata->>descartado.is.null,metadata->>descartado.neq.true');
+  }
+
   const { data, error } = await query;
 
   if (error) {
@@ -27,4 +33,33 @@ export async function listarFuentes(req: Request, res: Response) {
   }
 
   res.json({ fuentes: data });
+}
+
+/** POST /api/fuentes-movimiento/:id/descartar — el usuario revisó un correo
+ * no reconocido y decidió que no es un movimiento (publicidad, aviso de
+ * seguridad, etc.). Sigue 'ignored' — el CHECK solo admite 4 estados y
+ * ninguno dice "revisado" —, se marca en metadata para sacarlo de la bandeja. */
+export async function descartarFuente(req: Request, res: Response) {
+  const { id } = req.params;
+
+  const { data: fuente, error: errorFuente } = await req.supabase
+    .from('fuentes_movimiento')
+    .select('id, metadata')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (errorFuente || !fuente) {
+    return res.status(404).json({ error: 'Correo no encontrado' });
+  }
+
+  const { error } = await req.supabase
+    .from('fuentes_movimiento')
+    .update({ metadata: { ...(fuente.metadata ?? {}), descartado: true } })
+    .eq('id', id);
+
+  if (error) {
+    return res.status(500).json({ error: 'Error al descartar el correo', detalle: error.message });
+  }
+
+  res.status(204).end();
 }

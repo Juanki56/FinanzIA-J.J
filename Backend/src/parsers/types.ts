@@ -8,6 +8,8 @@ export interface CorreoParseado {
   descripcion: string;
   /** ISO 8601 completo, ya en UTC. */
   fecha_movimiento: string;
+  /** Retiro de efectivo: el plan de la cuenta puede cobrar comisión por él (ver cuentas.comision_retiro). */
+  es_retiro?: boolean;
 }
 
 // Nota: TODO movimiento creado desde un correo lleva requiere_revision=true y

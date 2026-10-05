@@ -62,7 +62,7 @@ export async function listarMovimientos(req: Request, res: Response) {
 export async function crearMovimiento(req: Request, res: Response) {
   const {
     cuenta_id, categoria_id, tipo, monto, signo,
-    descripcion, comercio, fecha_movimiento, estado,
+    descripcion, comercio, fecha_movimiento, estado, fuente_movimiento_id,
   } = req.body ?? {};
 
   if (typeof cuenta_id !== 'string') {
@@ -106,6 +106,9 @@ export async function crearMovimiento(req: Request, res: Response) {
   if (descripcion !== undefined) nuevoMovimiento.descripcion = descripcion;
   if (comercio !== undefined) nuevoMovimiento.comercio = comercio;
   if (fecha_movimiento !== undefined) nuevoMovimiento.fecha_movimiento = fecha_movimiento;
+  // Registrado a mano desde un correo que el parser no reconoció (bandeja de
+  // "correos sin reconocer"): el movimiento queda enlazado a su correo.
+  if (typeof fuente_movimiento_id === 'string') nuevoMovimiento.fuente_movimiento_id = fuente_movimiento_id;
 
   const { data, error } = await req.supabase
     .from('movimientos')
@@ -115,6 +118,18 @@ export async function crearMovimiento(req: Request, res: Response) {
 
   if (error) {
     return res.status(500).json({ error: 'Error al crear el movimiento', detalle: error.message });
+  }
+
+  if (typeof fuente_movimiento_id === 'string') {
+    // Si esto falla el movimiento ya existe igual; el correo solo seguiría
+    // en la bandeja, así que no se le devuelve error al usuario.
+    const { error: errorFuente } = await req.supabase
+      .from('fuentes_movimiento')
+      .update({ estado_procesamiento: 'processed' })
+      .eq('id', fuente_movimiento_id);
+    if (errorFuente) {
+      console.error(`[movimientos] no se pudo marcar la fuente ${fuente_movimiento_id} como procesada:`, errorFuente.message);
+    }
   }
 
   res.status(201).json({ movimiento: data });
@@ -152,7 +167,37 @@ export async function actualizarMovimiento(req: Request, res: Response) {
     return res.status(500).json({ error: 'Error al actualizar el movimiento', detalle: error.message });
   }
 
+  if ('estado' in body) {
+    await propagarACobros(req, data, { estado: body.estado });
+  }
+
   res.json({ movimiento: data });
+}
+
+/**
+ * Los cobros bancarios (comisión, 4x1000) que la sincronización crea junto con
+ * un movimiento comparten su correo de origen y llevan origen 'system'. Siguen
+ * al movimiento principal: si lo confirmas, cancelas o eliminas, a ellos les
+ * pasa lo mismo — si no, el saldo quedaría a medias.
+ */
+async function propagarACobros(
+  req: Request,
+  movimiento: { id: string; origen: string; fuente_movimiento_id: string | null },
+  cambios: Record<string, unknown>
+) {
+  if (movimiento.origen === 'system' || !movimiento.fuente_movimiento_id) return;
+
+  const { error } = await req.supabase
+    .from('movimientos')
+    .update(cambios)
+    .eq('fuente_movimiento_id', movimiento.fuente_movimiento_id)
+    .eq('origen', 'system')
+    .eq('eliminado', false)
+    .neq('id', movimiento.id);
+
+  if (error) {
+    console.error(`[movimientos] no se pudieron actualizar los cobros del movimiento ${movimiento.id}:`, error.message);
+  }
 }
 
 /** POST /api/movimientos/:id/sugerir-categoria — pide a Gemini una sugerencia
@@ -250,6 +295,8 @@ export async function eliminarMovimiento(req: Request, res: Response) {
     }
     return res.status(500).json({ error: 'Error al eliminar el movimiento', detalle: error.message });
   }
+
+  await propagarACobros(req, data, { eliminado: true, deleted_at: data.deleted_at });
 
   res.json({ movimiento: data });
 }

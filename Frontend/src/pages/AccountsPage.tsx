@@ -51,6 +51,8 @@ export function AccountsPage() {
       dia_corte: limpiarNumero(values.dia_corte as number | ''),
       dia_pago: limpiarNumero(values.dia_pago as number | ''),
       notas: values.notas || undefined,
+      comision_retiro: limpiarNumero(values.comision_retiro as number | '') ?? 0,
+      cobra_gmf: values.cobra_gmf ?? false,
     }
 
     if (editando) {

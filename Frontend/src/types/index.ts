@@ -35,6 +35,12 @@ export interface Cuenta {
   dia_corte: number | null
   dia_pago: number | null
   notas?: string | null
+  /** Lo que cobra el plan por cada retiro de efectivo (0 = nada). */
+  comision_retiro?: number
+  /** La cuenta no está exenta del 4x1000: cada salida paga el 0,4%. */
+  cobra_gmf?: boolean
+  /** Pendientes que todavía no cuentan en saldo_actual (posteriores al último ajuste de saldo). Solo en el listado. */
+  pendientes?: { cantidad: number; ingresos: number; gastos: number }
 }
 
 export type TipoMovimiento = 'income' | 'expense' | 'adjustment' | 'transfer'
@@ -179,6 +185,16 @@ export interface Conexion {
   ultima_sincronizacion_at: string | null
   cuenta_predeterminada_id: string | null
   created_at: string
+}
+
+/** Correo bancario guardado por la sincronización (tabla fuentes_movimiento). */
+export interface FuenteMovimiento {
+  id: string
+  asunto: string | null
+  remitente: string
+  fecha_recibido: string
+  estado_procesamiento: 'pending' | 'processed' | 'ignored' | 'error'
+  metadata: { texto_normalizado?: string; descartado?: boolean } | null
 }
 
 export interface ResumenSincronizacion {

@@ -5,20 +5,57 @@ const TIPOS_VALIDOS = ['cash', 'bank', 'ewallet', 'savings', 'credit_card', 'inv
 const CAMPOS_ACTUALIZABLES = [
   'nombre', 'tipo', 'moneda', 'institucion', 'activa',
   'es_pasivo', 'incluir_en_saldo_total', 'limite_credito',
-  'dia_corte', 'dia_pago', 'notas',
+  'dia_corte', 'dia_pago', 'notas', 'comision_retiro', 'cobra_gmf',
 ] as const;
 
 export async function listarCuentas(req: Request, res: Response) {
   const { data, error } = await req.supabase
     .from('cuentas')
-    .select('id, nombre, tipo, moneda, saldo_inicial, saldo_actual, activa, institucion, es_pasivo')
+    .select('id, nombre, tipo, moneda, saldo_inicial, saldo_actual, activa, institucion, es_pasivo, comision_retiro, cobra_gmf, created_at')
     .order('created_at', { ascending: true });
 
   if (error) {
     return res.status(500).json({ error: 'Error al consultar las cuentas' });
   }
 
-  res.json({ cuentas: data });
+  // El saldo solo cuenta movimientos confirmados, y la sincronización de
+  // Gmail los crea pendientes: si nadie los confirma, el saldo se queda atrás
+  // del banco. Por eso cada cuenta trae lo pendiente que todavía NO está
+  // reflejado en su saldo — solo lo posterior a su último ajuste de saldo (o a
+  // su creación): un ajuste fija el saldo real de ese momento, así que lo
+  // anterior ya quedó cubierto, y confirmarlo lo contaría dos veces.
+  const { data: movimientos, error: errorMovimientos } = await req.supabase
+    .from('movimientos')
+    .select('cuenta_id, tipo, estado, monto, fecha_movimiento')
+    .eq('eliminado', false)
+    .or('estado.eq.pending,and(tipo.eq.adjustment,estado.eq.confirmed)');
+
+  if (errorMovimientos) {
+    return res.status(500).json({ error: 'Error al consultar los movimientos pendientes' });
+  }
+
+  const corte = new Map<string, number>(data.map((c) => [c.id, new Date(c.created_at).getTime()]));
+  for (const m of movimientos) {
+    const fecha = new Date(m.fecha_movimiento).getTime();
+    if (m.tipo === 'adjustment' && m.estado === 'confirmed' && fecha > (corte.get(m.cuenta_id) ?? 0)) {
+      corte.set(m.cuenta_id, fecha);
+    }
+  }
+
+  const cuentas = data.map(({ created_at: _creada, ...cuenta }) => {
+    const pendientes = { cantidad: 0, ingresos: 0, gastos: 0 };
+    for (const m of movimientos) {
+      if (m.cuenta_id !== cuenta.id || m.estado !== 'pending') continue;
+      if (m.tipo !== 'income' && m.tipo !== 'expense') continue;
+      if (new Date(m.fecha_movimiento).getTime() <= (corte.get(cuenta.id) ?? 0)) continue;
+      pendientes.cantidad++;
+      if (m.tipo === 'income') pendientes.ingresos += Number(m.monto);
+      else pendientes.gastos += Number(m.monto);
+    }
+    return { ...cuenta, pendientes };
+  });
+
+  res.json({ cuentas });
 }
 
 export async function crearCuenta(req: Request, res: Response) {
@@ -26,6 +63,7 @@ export async function crearCuenta(req: Request, res: Response) {
     nombre, tipo, moneda, saldo_inicial,
     institucion, es_pasivo, incluir_en_saldo_total,
     limite_credito, dia_corte, dia_pago, notas,
+    comision_retiro, cobra_gmf,
   } = req.body ?? {};
 
   if (typeof nombre !== 'string' || !nombre.trim()) {
@@ -57,6 +95,8 @@ export async function crearCuenta(req: Request, res: Response) {
   if (dia_corte !== undefined) nuevaCuenta.dia_corte = dia_corte;
   if (dia_pago !== undefined) nuevaCuenta.dia_pago = dia_pago;
   if (notas !== undefined) nuevaCuenta.notas = notas;
+  if (comision_retiro !== undefined) nuevaCuenta.comision_retiro = comision_retiro;
+  if (cobra_gmf !== undefined) nuevaCuenta.cobra_gmf = cobra_gmf;
 
   const { data, error } = await req.supabase
     .from('cuentas')

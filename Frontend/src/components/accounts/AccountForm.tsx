@@ -24,6 +24,8 @@ const schema = z.object({
   dia_corte: z.union([z.literal(''), z.coerce.number().int().min(1, 'Entre 1 y 31').max(31, 'Entre 1 y 31')]).optional(),
   dia_pago: z.union([z.literal(''), z.coerce.number().int().min(1, 'Entre 1 y 31').max(31, 'Entre 1 y 31')]).optional(),
   notas: z.string().optional(),
+  comision_retiro: numeroOpcional,
+  cobra_gmf: z.boolean().optional(),
 })
 export type AccountFormValues = z.infer<typeof schema>
 
@@ -58,6 +60,8 @@ export function AccountForm({ cuenta, monedaDefault = 'COP', onSubmit, onCancel,
           dia_corte: cuenta.dia_corte ?? '',
           dia_pago: cuenta.dia_pago ?? '',
           notas: cuenta.notas ?? '',
+          comision_retiro: cuenta.comision_retiro || '',
+          cobra_gmf: cuenta.cobra_gmf ?? false,
         }
       : {
           moneda: monedaDefault,
@@ -105,6 +109,22 @@ export function AccountForm({ cuenta, monedaDefault = 'COP', onSubmit, onCancel,
           <MoneyInput control={control} name="limite_credito" label="Límite de crédito" error={errors.limite_credito?.message} />
           <Input label="Día de corte" type="number" min={1} max={31} error={errors.dia_corte?.message} {...register('dia_corte')} />
           <Input label="Día de pago" type="number" min={1} max={31} error={errors.dia_pago?.message} {...register('dia_pago')} />
+        </div>
+      )}
+
+      {!esCredito && (
+        <div className="flex flex-col gap-3 rounded-xl bg-white/[0.03] p-3">
+          <p className="text-xs text-ink-400">
+            Cobros del banco que no llegan por correo. Al sincronizar Gmail se registran solos junto
+            con el movimiento que los causa.
+          </p>
+          <MoneyInput control={control} name="comision_retiro" label="Comisión por cada retiro"
+            hint="Bancolombia Plan Cero: $2.990. Déjalo vacío si tu plan no cobra."
+            error={errors.comision_retiro?.message} />
+          <label className="flex items-center gap-2 text-sm text-ink-200">
+            <input type="checkbox" className="size-4 accent-violet-500" {...register('cobra_gmf')} />
+            Me cobran el 4x1000 (la cuenta no está marcada como exenta)
+          </label>
         </div>
       )}
 

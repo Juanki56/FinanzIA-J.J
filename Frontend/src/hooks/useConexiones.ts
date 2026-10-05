@@ -1,6 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/apiClient'
-import type { Conexion, ResumenSincronizacion } from '@/types'
+import type { Conexion, FuenteMovimiento, ResumenSincronizacion } from '@/types'
+
+/** Correos del banco que ninguna plantilla reconoció y el usuario todavía no revisó. */
+export function useCorreosSinReconocer() {
+  return useQuery({
+    queryKey: ['fuentes', 'sin-reconocer'],
+    queryFn: () =>
+      api
+        .get<{ fuentes: FuenteMovimiento[] }>('/fuentes-movimiento?estado_procesamiento=ignored&sin_revisar=true')
+        .then((r) => r.fuentes),
+  })
+}
+
+/** Marca un correo no reconocido como revisado (no era un movimiento). */
+export function useDescartarCorreo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.post<void>(`/fuentes-movimiento/${id}/descartar`, undefined),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fuentes'] }),
+  })
+}
 
 export function useConexiones() {
   return useQuery({
@@ -28,6 +48,7 @@ export function useSincronizarConexion() {
       qc.invalidateQueries({ queryKey: ['conexiones'] })
       qc.invalidateQueries({ queryKey: ['movimientos'] })
       qc.invalidateQueries({ queryKey: ['cuentas'] })
+      qc.invalidateQueries({ queryKey: ['fuentes'] })
     },
   })
 }

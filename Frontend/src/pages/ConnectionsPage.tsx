@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Spinner } from '@/components/ui/Spinner'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { GmailConnectionCard } from '@/components/connections/GmailConnectionCard'
+import { UnrecognizedEmailsCard } from '@/components/connections/UnrecognizedEmailsCard'
 import {
   useActualizarConexion,
   useCompletarConexionGoogle,
@@ -119,7 +120,7 @@ export function ConnectionsPage() {
         } else if (resumen.correos_nuevos === 0) {
           toast('No hay correos nuevos por ahora.')
         } else {
-          toast(`Revisé ${resumen.correos_nuevos} correo${resumen.correos_nuevos === 1 ? '' : 's'} nuevo${resumen.correos_nuevos === 1 ? '' : 's'}, pero no reconocí ninguno todavía.`)
+          toast(`Revisé ${resumen.correos_nuevos} correo${resumen.correos_nuevos === 1 ? '' : 's'} nuevo${resumen.correos_nuevos === 1 ? '' : 's'}, pero no reconocí ninguno — revísalos en "Correos sin reconocer".`)
         }
       },
       onError: (err) => notifyError(err),
@@ -148,6 +149,13 @@ export function ConnectionsPage() {
             actualizandoCuenta={actualizarConexion.isPending}
             sincronizando={sincronizar.isPending}
           />
+
+          {conexionGoogle && (
+            <UnrecognizedEmailsCard
+              cuentas={cuentas ?? []}
+              cuentaPredeterminadaId={conexionGoogle.cuenta_predeterminada_id}
+            />
+          )}
 
           <div className="flex items-start gap-2 rounded-xl border border-dashed border-white/10 px-4 py-3 text-xs text-ink-500">
             <Link2 className="mt-0.5 size-4 shrink-0" />

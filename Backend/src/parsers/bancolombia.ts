@@ -3,11 +3,27 @@ import type { CorreoParseado, Grupos5, Grupos6, PlantillaBancaria, RegistroBanco
 // --- Parseo de montos: Bancolombia NO usa un formato consistente entre plantillas ---
 // "Compraste" usa formato LATINO (punto=miles, coma=decimales): "448.300,00" -> 448300.00
 // El resto usa formato US (coma=miles, punto=decimales): "5,500.00" -> 5500.00
-function parsearMontoFormatoUS(texto: string): number {
-  return parseFloat(texto.replace(/,/g, ''));
-}
-function parsearMontoFormatoLatino(texto: string): number {
-  return parseFloat(texto.replace(/\./g, '').replace(',', '.'));
+// Antes cada plantilla tenía su formato fijo, y si Bancolombia cambiaba el de
+// una el monto salía mal SIN avisar: "$170.000" leído como US daba 170, y
+// "$448,300.00" leído como latino daba 448,3. Ahora se detecta por el texto:
+// - Si aparecen los dos separadores, el último es el decimal.
+// - Si aparece uno solo: es decimal solo si sale una vez y le siguen 1 o 2
+//   dígitos ("5,50"); con 3 dígitos detrás ("170.000", "5,500") o varias
+//   apariciones ("1.500.000") es de miles — un monto en pesos nunca trae 3 decimales.
+function parsearMonto(texto: string): number {
+  const limpio = texto.trim().replace(/[.,]+$/, ''); // punto final de la frase, si el regex lo capturó
+  const posUltimo = Math.max(limpio.lastIndexOf('.'), limpio.lastIndexOf(','));
+  if (posUltimo === -1) return parseFloat(limpio);
+
+  const separador = limpio[posUltimo] as '.' | ',';
+  const otro = separador === '.' ? ',' : '.';
+  const digitosDespues = limpio.length - posUltimo - 1;
+  const apariciones = limpio.split(separador).length - 1;
+  const esDecimal = limpio.includes(otro) || (apariciones === 1 && digitosDespues <= 2);
+
+  if (!esDecimal) return parseFloat(limpio.replace(/[.,]/g, ''));
+  const entero = limpio.slice(0, posUltimo).replace(/[.,]/g, '');
+  return parseFloat(`${entero}.${limpio.slice(posUltimo + 1)}`);
 }
 
 // --- Fechas: normaliza año de 2 dígitos a 4, y combina fecha+hora asumiendo
@@ -35,7 +51,7 @@ const PLANTILLAS: PlantillaBancaria[] = [
       const [monto, comercio, ultimosDigitos, fecha, hora] = grupos as Grupos5;
       return {
         tipo: 'expense',
-        monto: parsearMontoFormatoLatino(monto),
+        monto: parsearMonto(monto),
         comercio,
         descripcion: `Compra con T.Deb *${ultimosDigitos}`,
         fecha_movimiento: combinarFechaHoraColombia(fecha, hora),
@@ -51,13 +67,14 @@ const PLANTILLAS: PlantillaBancaria[] = [
       const [monto, lugar, ciudad, fecha, hora] = grupos as Grupos5;
       return {
         tipo: 'expense',
-        monto: parsearMontoFormatoUS(monto),
+        monto: parsearMonto(monto),
         // Un retiro casi siempre es su propia categoría (Efectivo/Retiros), no
         // un comercio para buscar coincidencia — igual se deja pasar por el
         // motor de reglas por si el usuario quiere una regla explícita.
         comercio: `Retiro efectivo - ${lugar}`,
         descripcion: `Retiro en ${lugar}, ${ciudad.trim()}`,
         fecha_movimiento: combinarFechaHoraColombia(fecha, hora),
+        es_retiro: true,
       };
     },
   },
@@ -77,7 +94,7 @@ const PLANTILLAS: PlantillaBancaria[] = [
       const [monto, cuentaOrigen, cuentaDestino, fecha, hora] = grupos as Grupos5;
       return {
         tipo: 'expense',
-        monto: parsearMontoFormatoUS(monto),
+        monto: parsearMonto(monto),
         comercio: null,
         descripcion: `Transferencia a cuenta terminada en ${cuentaDestino} — verifica si es una cuenta propia o de un tercero (desde *${cuentaOrigen})`,
         fecha_movimiento: combinarFechaHoraColombia(fecha, hora),
@@ -93,7 +110,7 @@ const PLANTILLAS: PlantillaBancaria[] = [
       const [concepto, monto, cuentaOrigen, fecha, hora] = grupos as Grupos5;
       return {
         tipo: 'expense',
-        monto: parsearMontoFormatoUS(monto),
+        monto: parsearMonto(monto),
         comercio: concepto,
         descripcion: `Recarga de ${concepto} desde cta *${cuentaOrigen}`,
         fecha_movimiento: combinarFechaHoraColombia(fecha, hora),
@@ -109,7 +126,7 @@ const PLANTILLAS: PlantillaBancaria[] = [
       const [empleador, monto, tipoCuenta, fecha, hora] = grupos as Grupos5;
       return {
         tipo: 'income',
-        monto: parsearMontoFormatoUS(monto),
+        monto: parsearMonto(monto),
         comercio: empleador,
         descripcion: `Nómina de ${empleador} en cuenta de ${tipoCuenta}`,
         fecha_movimiento: combinarFechaHoraColombia(fecha, hora),
@@ -126,7 +143,7 @@ const PLANTILLAS: PlantillaBancaria[] = [
       const [monto, corresponsal, ciudad, fecha, hora] = grupos as Grupos5;
       return {
         tipo: 'income',
-        monto: parsearMontoFormatoUS(monto),
+        monto: parsearMonto(monto),
         comercio: corresponsal,
         descripcion: `Consignación desde ${corresponsal}, ${ciudad.trim()}`,
         fecha_movimiento: combinarFechaHoraColombia(fecha, hora),
@@ -144,7 +161,7 @@ const PLANTILLAS: PlantillaBancaria[] = [
       const [monto, cuentaOrigen, llave, fecha, hora] = grupos as Grupos5;
       return {
         tipo: 'expense',
-        monto: parsearMontoFormatoUS(monto),
+        monto: parsearMonto(monto),
         comercio: llave,
         descripcion: `Pago QR a ${llave} desde cta *${cuentaOrigen}`,
         fecha_movimiento: combinarFechaHoraColombia(fecha, hora),
@@ -163,7 +180,7 @@ const PLANTILLAS: PlantillaBancaria[] = [
       const [monto, remitente, cuentaPropia, fecha, hora] = grupos as Grupos5;
       return {
         tipo: 'income',
-        monto: parsearMontoFormatoUS(monto),
+        monto: parsearMonto(monto),
         comercio: remitente,
         descripcion: `Transferencia recibida de ${remitente} en cuenta *${cuentaPropia}`,
         fecha_movimiento: combinarFechaHoraColombia(fecha, hora),
@@ -180,7 +197,7 @@ const PLANTILLAS: PlantillaBancaria[] = [
       const [monto, comercio, cuentaOrigen, fecha, hora] = grupos as Grupos5;
       return {
         tipo: 'expense',
-        monto: parsearMontoFormatoUS(monto),
+        monto: parsearMonto(monto),
         comercio,
         descripcion: `Pago con Botón Bancolombia a ${comercio} desde producto *${cuentaOrigen}`,
         fecha_movimiento: combinarFechaHoraColombia(fecha, hora),
@@ -196,7 +213,7 @@ const PLANTILLAS: PlantillaBancaria[] = [
       const [monto, comercio, cuentaOrigen, fecha, hora] = grupos as Grupos5;
       return {
         tipo: 'expense',
-        monto: parsearMontoFormatoUS(monto),
+        monto: parsearMonto(monto),
         comercio,
         descripcion: `Pago a ${comercio} desde producto ${cuentaOrigen}`,
         fecha_movimiento: combinarFechaHoraColombia(fecha, hora),
@@ -216,7 +233,7 @@ const PLANTILLAS: PlantillaBancaria[] = [
       const [monto, llave, cuentaOrigen, destinatario, fecha, hora] = grupos as Grupos6;
       return {
         tipo: 'expense',
-        monto: parsearMontoFormatoUS(monto),
+        monto: parsearMonto(monto),
         comercio: destinatario,
         descripcion: `Transferencia por llave Bre-B a ${destinatario} (llave ${llave}, desde *${cuentaOrigen})`,
         fecha_movimiento: combinarFechaHoraColombia(fecha, hora),
@@ -254,4 +271,4 @@ export function parsearCorreoBancolombia(texto: string): CorreoParseado | null {
 }
 
 // Exportado solo para pruebas.
-export { parsearMontoFormatoUS, parsearMontoFormatoLatino, combinarFechaHoraColombia, PLANTILLAS };
+export { parsearMonto, combinarFechaHoraColombia, PLANTILLAS };

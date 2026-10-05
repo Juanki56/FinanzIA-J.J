@@ -3,6 +3,7 @@ import { google, type gmail_v1 } from 'googleapis';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { crearOAuthClient } from '../lib/google.js';
 import { parsearCorreoBancolombia, BANCOLOMBIA } from '../parsers/bancolombia.js';
+import type { CorreoParseado } from '../parsers/types.js';
 import { buscarCategoriaPorReglas } from './categorizacion.service.js';
 
 // Si nunca se ha sincronizado esta conexión, cuánto atrás mirar la primera vez.
@@ -47,6 +48,60 @@ export interface ResumenSincronizacion {
   correos_nuevos: number;
   movimientos_creados: number;
   sin_reconocer: number;
+}
+
+// 4x1000: 4 pesos por cada 1.000 que salen de una cuenta no exenta.
+const TASA_GMF = 0.004;
+
+interface CobrosCuenta {
+  comision_retiro: number;
+  cobra_gmf: boolean;
+}
+
+/**
+ * Lee cuánto cobra el banco en la cuenta destino por cosas que NUNCA llegan
+ * por correo. Si falla (ej. la migración de estas columnas todavía no se
+ * aplicó) se sigue sin cobros: mejor sincronizar sin ellos que no sincronizar.
+ */
+async function leerCobrosCuenta(supabase: SupabaseClient, usuarioId: string, cuentaId: string): Promise<CobrosCuenta> {
+  const { data, error } = await supabase
+    .from('cuentas')
+    .select('comision_retiro, cobra_gmf')
+    .eq('id', cuentaId)
+    .eq('usuario_id', usuarioId)
+    .maybeSingle();
+
+  if (error || !data) {
+    console.error(`[sincronizacion] no se pudieron leer los cobros de la cuenta ${cuentaId}:`, error?.message);
+    return { comision_retiro: 0, cobra_gmf: false };
+  }
+  return { comision_retiro: Number(data.comision_retiro), cobra_gmf: data.cobra_gmf };
+}
+
+/**
+ * Los cobros que el banco descuenta junto con un movimiento sin avisar: la
+ * comisión del retiro y el 4x1000 sobre todo lo que sale (incluida esa misma
+ * comisión, que también es una salida). Van como movimientos aparte — así el
+ * gasto original conserva su categoría real — con origen 'system' y el mismo
+ * correo de origen, que es como se reconocen al confirmar o eliminar el
+ * movimiento principal (ver movimientos.controller).
+ */
+function calcularCobros(parseado: CorreoParseado, cobros: CobrosCuenta): { monto: number; descripcion: string }[] {
+  if (parseado.tipo !== 'expense') return [];
+  const resultado: { monto: number; descripcion: string }[] = [];
+
+  const comision = parseado.es_retiro ? cobros.comision_retiro : 0;
+  if (comision > 0) {
+    resultado.push({ monto: comision, descripcion: 'Comisión por retiro de efectivo (cobro del plan de la cuenta)' });
+  }
+
+  if (cobros.cobra_gmf) {
+    const base = parseado.monto + comision;
+    const gmf = Math.round(base * TASA_GMF);
+    if (gmf > 0) resultado.push({ monto: gmf, descripcion: `Impuesto 4x1000 (GMF) sobre $${base.toLocaleString('es-CO')}` });
+  }
+
+  return resultado;
 }
 
 /**
@@ -127,6 +182,7 @@ function extraerYNormalizarCuerpo(payload: ParteGmail | undefined | null): strin
 export async function sincronizarConexion(ctx: ContextoSincronizacion): Promise<ResumenSincronizacion> {
   const { supabase, usuarioId, conexionId, cuentaPredeterminadaId } = ctx;
   const resumen: ResumenSincronizacion = { correos_nuevos: 0, movimientos_creados: 0, sin_reconocer: 0 };
+  const cobros = await leerCobrosCuenta(supabase, usuarioId, cuentaPredeterminadaId);
 
   // --- 1. Token vigente ---
   const tokens = await ctx.leerTokens();
@@ -294,6 +350,30 @@ export async function sincronizarConexion(ctx: ContextoSincronizacion): Promise<
         .eq('id', fuente.id)
         .eq('usuario_id', usuarioId);
       continue;
+    }
+
+    // 6c. Cobros del banco que no llegan por correo (comisión, 4x1000). Si
+    // fallan el movimiento principal ya quedó; solo se loguea.
+    const cobrosMovimiento = calcularCobros(parseado, cobros);
+    if (cobrosMovimiento.length > 0) {
+      const { error: errorCobros } = await supabase.from('movimientos').insert(
+        cobrosMovimiento.map((cobro) => ({
+          usuario_id: usuarioId,
+          cuenta_id: cuentaPredeterminadaId,
+          tipo: 'expense',
+          monto: cobro.monto,
+          descripcion: cobro.descripcion,
+          comercio: 'Bancolombia',
+          fecha_movimiento: parseado.fecha_movimiento,
+          estado: 'pending',
+          origen: 'system',
+          creado_por_usuario: false,
+          fuente_movimiento_id: fuente.id,
+        }))
+      );
+      if (errorCobros) {
+        console.error(`[sincronizacion] no se pudieron crear los cobros bancarios de la fuente ${fuente.id}:`, errorCobros.message);
+      }
     }
 
     await supabase

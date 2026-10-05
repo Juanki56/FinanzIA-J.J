@@ -21,6 +21,8 @@ export type NuevaCuentaInput = {
   dia_corte?: number
   dia_pago?: number
   notas?: string
+  comision_retiro?: number
+  cobra_gmf?: boolean
 }
 
 export function useCrearCuenta() {

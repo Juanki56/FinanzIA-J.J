@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
-import { Archive, Pencil } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Archive, Clock, Pencil } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { formatCurrency } from '@/utils/currency'
@@ -37,6 +38,20 @@ export function AccountCard({ cuenta, onEdit, onArchive }: AccountCardProps) {
           <p className={`font-tabular font-display text-2xl ${cuenta.es_pasivo ? 'text-coral-400' : 'text-ink-100'}`}>
             {formatCurrency(cuenta.saldo_actual, cuenta.moneda)}
           </p>
+          {!!cuenta.pendientes?.cantidad && (
+            <Link
+              to="/movimientos"
+              className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-300 hover:bg-amber-500/15"
+            >
+              <Clock className="mt-0.5 size-3.5 shrink-0" />
+              <span>
+                {cuenta.pendientes.cantidad} pendiente{cuenta.pendientes.cantidad === 1 ? '' : 's'} sin confirmar
+                {cuenta.pendientes.ingresos > 0 && <> · +{formatCurrency(cuenta.pendientes.ingresos, cuenta.moneda)}</>}
+                {cuenta.pendientes.gastos > 0 && <> · −{formatCurrency(cuenta.pendientes.gastos, cuenta.moneda)}</>}
+                . No cuentan en el saldo hasta que los confirmes.
+              </span>
+            </Link>
+          )}
         </div>
 
         <div className="mt-4 flex items-center justify-between">

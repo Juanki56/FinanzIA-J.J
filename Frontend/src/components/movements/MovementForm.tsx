@@ -26,6 +26,8 @@ interface MovementFormProps {
   cuentas: Cuenta[]
   categorias: Categoria[]
   defaultTipo?: 'income' | 'expense' | 'adjustment'
+  /** Solo al crear: valores con los que arranca el formulario (ej. desde un correo no reconocido). */
+  valoresIniciales?: Partial<MovementFormValues>
   onSubmit: (values: MovementFormValues) => void
   onCancel: () => void
   submitting?: boolean
@@ -36,6 +38,7 @@ export function MovementForm({
   cuentas,
   categorias,
   defaultTipo = 'expense',
+  valoresIniciales,
   onSubmit,
   onCancel,
   submitting,
@@ -67,6 +70,7 @@ export function MovementForm({
           fecha_movimiento: todayISO(),
           estado: 'confirmed',
           signo: '1',
+          ...valoresIniciales,
         },
   })
 

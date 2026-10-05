@@ -87,6 +87,8 @@ export type NuevoMovimientoInput = {
   comercio?: string
   fecha_movimiento?: string
   estado?: 'pending' | 'confirmed' | 'cancelled'
+  /** Correo no reconocido del que sale este movimiento; el backend lo marca como procesado. */
+  fuente_movimiento_id?: string
 }
 
 function invalidateSaldos(qc: ReturnType<typeof useQueryClient>) {
@@ -99,7 +101,10 @@ export function useCrearMovimiento() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (input: NuevoMovimientoInput) => api.post<{ movimiento: Movimiento }>('/movimientos', input),
-    onSuccess: () => invalidateSaldos(qc),
+    onSuccess: (_data, input) => {
+      invalidateSaldos(qc)
+      if (input.fuente_movimiento_id) qc.invalidateQueries({ queryKey: ['fuentes'] })
+    },
   })
 }
 
