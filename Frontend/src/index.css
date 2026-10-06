@@ -70,6 +70,15 @@
     letter-spacing: -0.01em;
   }
 
+  /* La lista desplegable de un <select> la dibuja el sistema operativo: si el
+     select no tiene fondo propio, Windows la pinta blanca y el texto claro de
+     la app hereda y se vuelve invisible. Fondo y texto explícitos para todas. */
+  option,
+  optgroup {
+    background-color: var(--color-bg-raised);
+    color: var(--color-ink-100);
+  }
+
   ::selection {
     background: rgba(146, 86, 255, 0.35);
     color: white;

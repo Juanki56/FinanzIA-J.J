@@ -97,10 +97,11 @@ export function GmailConnectionCard({
             value={conexion.cuenta_predeterminada_id ?? ''}
             disabled={actualizandoCuenta}
             onChange={(e) => onCambiarCuentaPredeterminada(e.target.value || null)}
-            className="rounded-lg border border-white/10 bg-ink-900 px-3 py-2 text-sm text-ink-100 outline-none focus:border-violet-400"
+            className="rounded-lg border border-white/10 bg-bg-raised px-3 py-2 text-sm text-ink-100 outline-none focus:border-violet-400"
           >
             <option value="">Elige una cuenta…</option>
-            {cuentas.map((c) => (
+            {/* Solo cuentas activas (más la actual, aunque esté archivada, para que el select no quede vacío). */}
+            {cuentas.filter((c) => c.activa || c.id === conexion.cuenta_predeterminada_id).map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nombre}
               </option>
