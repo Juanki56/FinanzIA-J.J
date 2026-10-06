@@ -101,8 +101,9 @@ export function useCrearMovimiento() {
   })
 }
 
+/** Lo mismo que el backend acepta en PATCH (ver CAMPOS_EDITABLES en movimientos.controller). */
 export type EditarMovimientoInput = Partial<
-  Omit<NuevoMovimientoInput, 'signo'> & { signo: 1 | -1 }
+  Omit<NuevoMovimientoInput, 'signo' | 'fuente_movimiento_id'> & { signo: 1 | -1 }
 >
 
 export function useActualizarMovimiento() {

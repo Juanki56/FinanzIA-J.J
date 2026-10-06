@@ -6,6 +6,12 @@ import { descripcionGmf, PREFIJO_DESCRIPCION_GMF, TASA_GMF } from '../services/s
 const TIPOS_VALIDOS = ['income', 'expense', 'adjustment'];
 const ESTADOS_VALIDOS = ['pending', 'confirmed', 'cancelled'];
 
+/** Lo único que PATCH /movimientos/:id deja cambiar (eliminar va por DELETE, transferencias por su endpoint). */
+const CAMPOS_EDITABLES = [
+  'cuenta_id', 'categoria_id', 'tipo', 'monto', 'signo',
+  'descripcion', 'comercio', 'fecha_movimiento', 'estado',
+] as const;
+
 export async function listarMovimientos(req: Request, res: Response) {
   const incluirEliminados = req.query.incluir_eliminados === 'true';
   const limite = Math.min(Number(req.query.limite) || 50, 200);
@@ -140,9 +146,13 @@ export async function actualizarMovimiento(req: Request, res: Response) {
   const { id } = req.params;
   const body = req.body ?? {};
 
-  if ('usuario_id' in body || 'transferencia_id' in body || 'eliminado' in body || 'deleted_at' in body) {
+  // Lista blanca: antes se guardaba el body tal cual y solo se bloqueaban
+  // algunos campos, así que una petición a mano podía cambiar origen,
+  // fuente_movimiento_id o requiere_revision y confundir la sincronización.
+  const noPermitidos = Object.keys(body).filter((campo) => !(CAMPOS_EDITABLES as readonly string[]).includes(campo));
+  if (noPermitidos.length > 0) {
     return res.status(400).json({
-      error: 'usuario_id, transferencia_id, eliminado y deleted_at no se pueden modificar desde este endpoint',
+      error: `No se pueden modificar desde este endpoint: ${noPermitidos.join(', ')}. Campos editables: ${CAMPOS_EDITABLES.join(', ')}`,
     });
   }
 

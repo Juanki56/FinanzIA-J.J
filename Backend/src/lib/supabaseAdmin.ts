@@ -6,12 +6,15 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 /**
  * Cliente de Supabase con la clave de `service_role` — salta RLS por completo.
  *
- * USO EXCLUSIVO: el cron de sincronización de correos (`cron/sincronizacionCron.ts`),
- * que no tiene un JWT de usuario disponible (nadie está logueado cuando corre).
+ * USO EXCLUSIVO:
+ * - el cron de sincronización de correos (`cron/sincronizacionCron.ts`), que no
+ *   tiene un JWT de usuario disponible (nadie está logueado cuando corre);
+ * - leer/guardar los tokens de Gmail en la sincronización manual, porque esas
+ *   RPC ya no las puede ejecutar un usuario — y solo DESPUÉS de haber leído la
+ *   conexión con el cliente del usuario (RLS confirma que es suya).
  *
- * NUNCA reutilizar este cliente para nada que responda a una request HTTP de
- * un usuario — para eso siempre `crearClienteConToken(jwt)` de `lib/supabase.ts`,
- * que sí respeta RLS.
+ * Para todo lo demás que responda a una request HTTP de un usuario, siempre
+ * `crearClienteConToken(jwt)` de `lib/supabase.ts`, que sí respeta RLS.
  *
  * Como este cliente no tiene la protección de RLS detrás, todo el código que lo
  * usa (el cron y el servicio de sincronización cuando corre desde el cron) debe

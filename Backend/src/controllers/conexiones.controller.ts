@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import crypto from 'crypto';
 import { crearOAuthClient, GMAIL_SCOPES } from '../lib/google.js';
 import { sincronizarConexion } from '../services/sincronizacion.service.js';
+import { crearClienteAdmin } from '../lib/supabaseAdmin.js';
 
 const SELECT_CONEXION =
   'id, proveedor, tipo, identificador_externo, estado, scopes, token_expira_at, ultima_sincronizacion_at, cuenta_predeterminada_id, created_at';
@@ -152,8 +153,8 @@ export async function actualizarConexion(req: Request, res: Response) {
 }
 
 /** POST /api/conexiones/:id/sincronizar — dispara la sincronización de forma
- * síncrona usando el JWT del usuario que hace la request (no toca service_role,
- * eso es solo para el cron). */
+ * síncrona usando el JWT del usuario que hace la request. La única excepción
+ * es leer/guardar los tokens de Gmail, que va por service_role (ver leerTokens). */
 export async function sincronizarConexionManual(req: Request, res: Response) {
   const { id } = req.params;
 
@@ -182,13 +183,19 @@ export async function sincronizarConexionManual(req: Request, res: Response) {
     conexionId: conexion.id,
     cuentaPredeterminadaId: conexion.cuenta_predeterminada_id as string,
     ultimaSincronizacionAt: conexion.ultima_sincronizacion_at as string | null,
+    // Los tokens de Gmail ya no se pueden leer con el JWT del usuario (la
+    // migración 20261006010000 les quitó EXECUTE a anon/authenticated: con una
+    // sesión robada se podía sacar el token de Gmail desde el navegador). Se
+    // usan las RPC _servicio, que solo ejecuta service_role. Es seguro aquí
+    // porque la conexión ya se leyó arriba con req.supabase: si llegamos a
+    // este punto, RLS confirmó que es de este usuario.
     leerTokens: async () => {
-      const { data, error } = await req.supabase.rpc('leer_tokens_conexion', { p_conexion_id: id });
+      const { data, error } = await crearClienteAdmin().rpc('leer_tokens_conexion_servicio', { p_conexion_id: conexion.id });
       if (error || !data?.[0]) throw new Error('No se pudieron leer los tokens de la conexión');
       return data[0];
     },
     guardarTokens: async (nuevo) => {
-      const { error } = await req.supabase.rpc('actualizar_tokens_conexion', {
+      const { error } = await crearClienteAdmin().rpc('actualizar_tokens_conexion_servicio', {
         p_conexion_id: id,
         p_access_token: nuevo.access_token,
         ...(nuevo.refresh_token ? { p_refresh_token: nuevo.refresh_token } : {}),
