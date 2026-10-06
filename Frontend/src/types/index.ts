@@ -61,6 +61,8 @@ export interface Movimiento {
   eliminado: boolean
   deleted_at: string | null
   transferencia_id?: string | null
+  /** 'gmail' = lo creó la sincronización a partir de un correo del banco; 'system' = cobro bancario derivado. */
+  origen?: 'manual' | 'gmail' | 'import' | 'system'
   created_at?: string
 }
 

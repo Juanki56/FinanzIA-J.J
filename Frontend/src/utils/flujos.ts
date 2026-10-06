@@ -4,14 +4,16 @@ import type { Categoria, Movimiento } from '@/types'
 
 /**
  * Cálculos de ingresos/gastos compartidos por el dashboard y las categorías.
- * Solo cuentan ingresos y gastos reales: fuera transferencias entre cuentas,
- * ajustes de saldo, cancelados y eliminados. Los pendientes sí cuentan.
+ * Solo cuentan ingresos y gastos reales y confirmados: fuera transferencias
+ * entre cuentas, ajustes de saldo, eliminados, cancelados y pendientes. Igual
+ * que el saldo de las cuentas y los presupuestos — antes los pendientes sí
+ * contaban aquí, y los reportes no cuadraban con el saldo.
  */
 
 export type MovimientoFlujo = Movimiento & { tipo: 'income' | 'expense' }
 
 export function esFlujo(m: Movimiento): m is MovimientoFlujo {
-  return (m.tipo === 'income' || m.tipo === 'expense') && !m.eliminado && m.estado !== 'cancelled'
+  return (m.tipo === 'income' || m.tipo === 'expense') && !m.eliminado && m.estado === 'confirmed'
 }
 
 export interface TotalesPeriodo {

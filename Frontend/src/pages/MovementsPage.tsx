@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, Receipt } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
@@ -30,8 +31,13 @@ const FILTROS_VACIOS: MovementFiltersState = { cuentaId: '', categoriaId: '', ti
 const LIMITE_POR_PAGINA = 20
 
 export function MovementsPage() {
+  const [searchParams] = useSearchParams()
   const [pagina, setPagina] = useState(1)
-  const [filtros, setFiltros] = useState<MovementFiltersState>(FILTROS_VACIOS)
+  // ?cuenta=<id> llega ya filtrado (ej. desde el aviso de pendientes de una cuenta).
+  const [filtros, setFiltros] = useState<MovementFiltersState>(() => ({
+    ...FILTROS_VACIOS,
+    cuentaId: searchParams.get('cuenta') ?? '',
+  }))
 
   // Los filtros los aplica el backend, así la paginación cuenta solo lo filtrado.
   // Las fechas del filtro son días locales; se convierten al rango con hora.

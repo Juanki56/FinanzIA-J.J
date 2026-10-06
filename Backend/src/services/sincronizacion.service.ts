@@ -51,7 +51,14 @@ export interface ResumenSincronizacion {
 }
 
 // 4x1000: 4 pesos por cada 1.000 que salen de una cuenta no exenta.
-const TASA_GMF = 0.004;
+export const TASA_GMF = 0.004;
+
+/** Descripción del cobro de 4x1000; con este prefijo se reconoce al recalcularlo (ver movimientos.controller). */
+export const PREFIJO_DESCRIPCION_GMF = 'Impuesto 4x1000 (GMF)';
+
+export function descripcionGmf(base: number): string {
+  return `${PREFIJO_DESCRIPCION_GMF} sobre $${base.toLocaleString('es-CO')}`;
+}
 
 interface CobrosCuenta {
   comision_retiro: number;
@@ -98,7 +105,7 @@ function calcularCobros(parseado: CorreoParseado, cobros: CobrosCuenta): { monto
   if (cobros.cobra_gmf) {
     const base = parseado.monto + comision;
     const gmf = Math.round(base * TASA_GMF);
-    if (gmf > 0) resultado.push({ monto: gmf, descripcion: `Impuesto 4x1000 (GMF) sobre $${base.toLocaleString('es-CO')}` });
+    if (gmf > 0) resultado.push({ monto: gmf, descripcion: descripcionGmf(base) });
   }
 
   return resultado;

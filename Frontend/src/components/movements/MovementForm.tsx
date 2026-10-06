@@ -6,6 +6,7 @@ import { MoneyInput } from '@/components/ui/MoneyInput'
 import { Button } from '@/components/ui/Button'
 import { buildCategoryOptions } from '@/utils/categoryTree'
 import { dateOnlyLocal, todayISO } from '@/utils/date'
+import { formatCurrency } from '@/utils/currency'
 import type { Categoria, Cuenta, Movimiento } from '@/types'
 
 const schema = z.object({
@@ -79,6 +80,11 @@ export function MovementForm({
   // Al editar se incluye la cuenta actual aunque esté archivada, para que el
   // select no quede vacío y no se cambie de cuenta sin querer.
   const cuentasActivas = cuentas.filter((c) => c.activa || c.id === movimiento?.cuenta_id)
+  // El monto de un movimiento que llegó por correo es lo que el banco descontó:
+  // cambiarlo descuadra el saldo (así pasó con una transferencia de $50.008).
+  const montoActual = watch('monto')
+  const montoDelBancoCambiado =
+    movimiento?.origen === 'gmail' && Number(montoActual) !== Number(movimiento.monto)
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
@@ -119,6 +125,13 @@ export function MovementForm({
         <MoneyInput control={control} name="monto" label="Monto" required error={errors.monto?.message} />
         <Input label="Fecha" type="date" required error={errors.fecha_movimiento?.message} {...register('fecha_movimiento')} />
       </div>
+
+      {montoDelBancoCambiado && (
+        <p className="-mt-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+          Este movimiento vino de un correo de Bancolombia por {formatCurrency(Number(movimiento.monto))}. Si el banco
+          descontó ese valor y lo cambias, tu saldo dejará de cuadrar con el del banco.
+        </p>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <Input label="Comercio" placeholder="Opcional" error={errors.comercio?.message} {...register('comercio')} />

@@ -33,7 +33,12 @@ export function useCrearCuenta() {
   })
 }
 
-export type EditarCuentaInput = Partial<Omit<NuevaCuentaInput, 'saldo_inicial'>> & { activa?: boolean }
+type CampoBorrable = 'institucion' | 'limite_credito' | 'dia_corte' | 'dia_pago' | 'notas'
+
+/** Al editar, los campos opcionales aceptan null para borrarlos. */
+export type EditarCuentaInput = Partial<Omit<NuevaCuentaInput, 'saldo_inicial' | CampoBorrable>> & {
+  [K in CampoBorrable]?: NuevaCuentaInput[K] | null
+} & { activa?: boolean }
 
 export function useActualizarCuenta() {
   const qc = useQueryClient()

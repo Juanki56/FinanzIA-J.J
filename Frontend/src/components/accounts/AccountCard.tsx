@@ -40,7 +40,7 @@ export function AccountCard({ cuenta, onEdit, onArchive }: AccountCardProps) {
           </p>
           {!!cuenta.pendientes?.cantidad && (
             <Link
-              to="/movimientos"
+              to={`/movimientos?cuenta=${cuenta.id}`}
               className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-300 hover:bg-amber-500/15"
             >
               <Clock className="mt-0.5 size-3.5 shrink-0" />

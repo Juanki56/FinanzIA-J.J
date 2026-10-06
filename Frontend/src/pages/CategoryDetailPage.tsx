@@ -258,7 +258,6 @@ export function CategoryDetailPage() {
                           {formatDate(mov.fecha_movimiento)}
                           {cuenta && ` · ${cuenta.nombre}`}
                           {sub && ` · ${sub.icono ?? ''} ${sub.nombre}`.trimEnd()}
-                          {mov.estado === 'pending' && ' · Pendiente'}
                         </p>
                       </div>
                       <span

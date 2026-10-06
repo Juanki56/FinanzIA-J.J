@@ -56,7 +56,16 @@ export function AccountsPage() {
     }
 
     if (editando) {
-      const cambios: EditarCuentaInput = base
+      // Al editar, un campo vaciado se manda como null para que se borre en la
+      // base (undefined desaparece del JSON y dejaría el valor viejo).
+      const cambios: EditarCuentaInput = {
+        ...base,
+        institucion: values.institucion || null,
+        limite_credito: base.limite_credito ?? null,
+        dia_corte: base.dia_corte ?? null,
+        dia_pago: base.dia_pago ?? null,
+        notas: values.notas || null,
+      }
       // Saldo vacío = no tocar el saldo (no llevarlo a 0).
       const saldoNuevo = limpiarNumero(values.saldo_actual)
       const cambiaSaldo =

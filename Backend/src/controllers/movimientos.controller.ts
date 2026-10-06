@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { sugerirCategoriaMovimiento } from '../services/categorizacionIA.service.js';
 import { GeminiLimiteExcedidoError, GeminiNoConfiguradoError } from '../lib/gemini.js';
+import { descripcionGmf, PREFIJO_DESCRIPCION_GMF, TASA_GMF } from '../services/sincronizacion.service.js';
 
 const TIPOS_VALIDOS = ['income', 'expense', 'adjustment'];
 const ESTADOS_VALIDOS = ['pending', 'confirmed', 'cancelled'];
@@ -153,9 +154,16 @@ export async function actualizarMovimiento(req: Request, res: Response) {
     return res.status(400).json({ error: `estado debe ser uno de: ${ESTADOS_VALIDOS.join(', ')}` });
   }
 
+  const cambios: Record<string, unknown> = { ...body };
+  // Confirmar o cancelar es justamente revisarlo: sin esto, requiere_revision
+  // de los movimientos que llegan por correo se quedaba en true para siempre.
+  if ('estado' in body && body.estado !== 'pending') {
+    cambios.requiere_revision = false;
+  }
+
   const { data, error } = await req.supabase
     .from('movimientos')
-    .update(body)
+    .update(cambios)
     .eq('id', id)
     .select()
     .single();
@@ -170,8 +178,49 @@ export async function actualizarMovimiento(req: Request, res: Response) {
   if ('estado' in body) {
     await propagarACobros(req, data, { estado: body.estado });
   }
+  if ('monto' in body) {
+    await recalcularGmf(req, data);
+  }
 
   res.json({ movimiento: data });
+}
+
+/**
+ * Si cambia el monto de un gasto que llegó por correo, su 4x1000 (creado por
+ * la sincronización) se recalcula sobre el monto nuevo más la comisión, igual
+ * que al crearlo. Sin esto quedaba calculado sobre el monto viejo.
+ */
+async function recalcularGmf(
+  req: Request,
+  movimiento: { id: string; tipo: string; monto: number | string; origen: string; fuente_movimiento_id: string | null }
+) {
+  if (movimiento.origen === 'system' || movimiento.tipo !== 'expense' || !movimiento.fuente_movimiento_id) return;
+
+  const { data: cobros, error } = await req.supabase
+    .from('movimientos')
+    .select('id, monto, descripcion')
+    .eq('fuente_movimiento_id', movimiento.fuente_movimiento_id)
+    .eq('origen', 'system')
+    .eq('eliminado', false)
+    .neq('id', movimiento.id);
+
+  const gmf = cobros?.find((c) => c.descripcion.startsWith(PREFIJO_DESCRIPCION_GMF));
+  if (error || !cobros || !gmf) return;
+
+  const comision = cobros.filter((c) => c.id !== gmf.id).reduce((suma, c) => suma + Number(c.monto), 0);
+  const base = Number(movimiento.monto) + comision;
+  const nuevoGmf = Math.round(base * TASA_GMF);
+  // monto > 0 es obligatorio en la base; un gasto tan pequeño que no paga
+  // 4x1000 deja el cobro como estaba.
+  if (nuevoGmf <= 0) return;
+
+  const { error: errorGmf } = await req.supabase
+    .from('movimientos')
+    .update({ monto: nuevoGmf, descripcion: descripcionGmf(base) })
+    .eq('id', gmf.id);
+  if (errorGmf) {
+    console.error(`[movimientos] no se pudo recalcular el 4x1000 del movimiento ${movimiento.id}:`, errorGmf.message);
+  }
 }
 
 /**

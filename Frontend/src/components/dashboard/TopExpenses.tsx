@@ -41,7 +41,6 @@ export function TopExpenses({ gastos, cuentas, categorias, moneda, limite = 5 }:
                 {formatDate(mov.fecha_movimiento)}
                 {cuenta && ` · ${cuenta.nombre}`}
                 {categoria && ` · ${categoria.icono ?? ''} ${categoria.nombre}`.trimEnd()}
-                {mov.estado === 'pending' && ' · Pendiente'}
               </p>
             </div>
             <span className="shrink-0 font-tabular text-sm font-semibold text-ink-100">

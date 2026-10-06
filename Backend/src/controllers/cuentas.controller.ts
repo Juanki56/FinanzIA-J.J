@@ -8,10 +8,17 @@ const CAMPOS_ACTUALIZABLES = [
   'dia_corte', 'dia_pago', 'notas', 'comision_retiro', 'cobra_gmf',
 ] as const;
 
+// Lo que devuelve la API de cada cuenta. Tiene que incluir todo lo que el
+// formulario de edición muestra: antes faltaban incluir_en_saldo_total,
+// limite_credito, dia_corte, dia_pago y notas, así que al editar salían vacíos
+// (o "incluir en el saldo total" marcado) y se guardaban así sin querer.
+// (Un solo literal, sin concatenar: supabase-js deduce los tipos del texto.)
+const CAMPOS_CUENTA = 'id, nombre, tipo, moneda, saldo_inicial, saldo_actual, activa, institucion, es_pasivo, incluir_en_saldo_total, limite_credito, dia_corte, dia_pago, notas, comision_retiro, cobra_gmf';
+
 export async function listarCuentas(req: Request, res: Response) {
   const { data, error } = await req.supabase
     .from('cuentas')
-    .select('id, nombre, tipo, moneda, saldo_inicial, saldo_actual, activa, institucion, es_pasivo, comision_retiro, cobra_gmf, created_at')
+    .select(`${CAMPOS_CUENTA}, created_at` as const)
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -205,7 +212,7 @@ export async function ajustarSaldoCuenta(req: Request, res: Response) {
   // confirmar que el ajuste dejó el saldo donde el usuario pidió.
   const { data: cuentaActualizada } = await req.supabase
     .from('cuentas')
-    .select('id, nombre, tipo, moneda, saldo_inicial, saldo_actual, activa, institucion, es_pasivo')
+    .select(CAMPOS_CUENTA)
     .eq('id', id)
     .single();
 
