@@ -1,31 +1,10 @@
-import { useState } from 'react'
 import { clsx } from 'clsx'
 import { Calculator } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
 import { useCuentas } from '@/hooks/useCuentas'
 import { formatCurrency, formatSignedCurrency } from '@/utils/currency'
-
-// La selección se recuerda en este navegador: casi siempre se suman las mismas
-// cuentas (ej. ahorros + Bancolombia). Si el almacenamiento falla, arranca vacía.
-const CLAVE_SELECCION = 'finanzia_calculadora_cuentas'
-
-function leerSeleccion(): string[] {
-  try {
-    const guardado = localStorage.getItem(CLAVE_SELECCION)
-    return guardado ? (JSON.parse(guardado) as string[]) : []
-  } catch {
-    return []
-  }
-}
-
-function guardarSeleccion(ids: string[]) {
-  try {
-    localStorage.setItem(CLAVE_SELECCION, JSON.stringify(ids))
-  } catch {
-    // Sin almacenamiento solo se pierde el recordatorio, no el cálculo.
-  }
-}
+import { sumarSaldos, useSeleccionCuentas } from './useSeleccionCuentas'
 
 interface AccountsSumProps {
   /** Lleva el total a la calculadora normal para seguir operando con él. */
@@ -34,23 +13,13 @@ interface AccountsSumProps {
 
 export function AccountsSum({ onUsarTotal }: AccountsSumProps) {
   const { data: cuentas, isLoading } = useCuentas()
-  const [seleccion, setSeleccion] = useState<string[]>(leerSeleccion)
+  const { seleccion, cambiar, alternar } = useSeleccionCuentas()
 
   if (isLoading) return <Spinner />
 
   const activas = (cuentas ?? []).filter((c) => c.activa)
   const elegidas = activas.filter((c) => seleccion.includes(c.id))
-  // Las cuentas de deuda restan: lo que debes no es plata disponible.
-  const total = elegidas.reduce((suma, c) => suma + (c.es_pasivo ? -c.saldo_actual : c.saldo_actual), 0)
-
-  function cambiar(ids: string[]) {
-    setSeleccion(ids)
-    guardarSeleccion(ids)
-  }
-
-  function alternar(id: string) {
-    cambiar(seleccion.includes(id) ? seleccion.filter((s) => s !== id) : [...seleccion, id])
-  }
+  const total = sumarSaldos(elegidas)
 
   if (activas.length === 0) {
     return <p className="py-6 text-center text-sm text-ink-400">Todavía no tienes cuentas activas.</p>

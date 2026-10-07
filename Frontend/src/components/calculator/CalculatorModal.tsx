@@ -38,9 +38,8 @@ export function CalculatorModal({ open, onClose }: { open: boolean; onClose: () 
         ))}
       </div>
 
-      {pestana === 'normal' ? (
-        <BasicCalculator tokens={tokens} onChange={setTokens} />
-      ) : (
+      {pestana === 'normal' && <BasicCalculator tokens={tokens} onChange={setTokens} />}
+      {pestana === 'cuentas' && (
         <AccountsSum
           onUsarTotal={(total) => {
             setTokens([numeroAToken(total)])
