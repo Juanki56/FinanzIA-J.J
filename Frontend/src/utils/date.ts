@@ -69,3 +69,8 @@ export const DIAS_SEMANA = [
   { value: 5, label: 'Viernes' },
   { value: 6, label: 'Sábado' },
 ]
+
+/** "0,8 meses", "1 mes", "3 meses" (decimal con coma, como en Colombia). */
+export function textoMeses(meses: number): string {
+  return `${String(meses).replace('.', ',')} ${meses === 1 ? 'mes' : 'meses'}`
+}

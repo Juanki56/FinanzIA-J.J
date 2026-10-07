@@ -5,7 +5,7 @@ const TIPOS_VALIDOS = ['cash', 'bank', 'ewallet', 'savings', 'credit_card', 'inv
 const CAMPOS_ACTUALIZABLES = [
   'nombre', 'tipo', 'moneda', 'institucion', 'activa',
   'es_pasivo', 'incluir_en_saldo_total', 'limite_credito',
-  'dia_corte', 'dia_pago', 'notas', 'comision_retiro', 'cobra_gmf',
+  'dia_corte', 'dia_pago', 'notas', 'comision_retiro', 'cobra_gmf', 'es_ahorro',
 ] as const;
 
 // Lo que devuelve la API de cada cuenta. Tiene que incluir todo lo que el
@@ -13,7 +13,7 @@ const CAMPOS_ACTUALIZABLES = [
 // limite_credito, dia_corte, dia_pago y notas, así que al editar salían vacíos
 // (o "incluir en el saldo total" marcado) y se guardaban así sin querer.
 // (Un solo literal, sin concatenar: supabase-js deduce los tipos del texto.)
-const CAMPOS_CUENTA = 'id, nombre, tipo, moneda, saldo_inicial, saldo_actual, activa, institucion, es_pasivo, incluir_en_saldo_total, limite_credito, dia_corte, dia_pago, notas, comision_retiro, cobra_gmf';
+const CAMPOS_CUENTA = 'id, nombre, tipo, moneda, saldo_inicial, saldo_actual, activa, institucion, es_pasivo, incluir_en_saldo_total, limite_credito, dia_corte, dia_pago, notas, comision_retiro, cobra_gmf, es_ahorro';
 
 export async function listarCuentas(req: Request, res: Response) {
   const { data, error } = await req.supabase
@@ -73,7 +73,7 @@ export async function crearCuenta(req: Request, res: Response) {
     nombre, tipo, moneda, saldo_inicial,
     institucion, es_pasivo, incluir_en_saldo_total,
     limite_credito, dia_corte, dia_pago, notas,
-    comision_retiro, cobra_gmf,
+    comision_retiro, cobra_gmf, es_ahorro,
   } = req.body ?? {};
 
   if (typeof nombre !== 'string' || !nombre.trim()) {
@@ -107,6 +107,7 @@ export async function crearCuenta(req: Request, res: Response) {
   if (notas !== undefined) nuevaCuenta.notas = notas;
   if (comision_retiro !== undefined) nuevaCuenta.comision_retiro = comision_retiro;
   if (cobra_gmf !== undefined) nuevaCuenta.cobra_gmf = cobra_gmf;
+  if (es_ahorro !== undefined) nuevaCuenta.es_ahorro = es_ahorro;
 
   const { data, error } = await req.supabase
     .from('cuentas')

@@ -6,6 +6,7 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { AccountsPage } from '@/pages/AccountsPage'
 import { MovementsPage } from '@/pages/MovementsPage'
 import { ReviewPage } from '@/pages/ReviewPage'
+import { AssistantPage } from '@/pages/AssistantPage'
 import { TransfersPage } from '@/pages/TransfersPage'
 import { CategoriesPage } from '@/pages/CategoriesPage'
 import { CategoryDetailPage } from '@/pages/CategoryDetailPage'
@@ -29,6 +30,7 @@ function App() {
         <Route path="/cuentas" element={<AccountsPage />} />
         <Route path="/movimientos" element={<MovementsPage />} />
         <Route path="/revisar" element={<ReviewPage />} />
+        <Route path="/asistente" element={<AssistantPage />} />
         <Route path="/transferencias" element={<TransfersPage />} />
         <Route path="/categorias" element={<CategoriesPage />} />
         <Route path="/categorias/:id" element={<CategoryDetailPage />} />

@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { montoAsignado } from '../services/contextoFinanciero.service.js';
 
 const ESTADOS_VALIDOS = ['active', 'completed', 'paused', 'cancelled'];
 
@@ -24,7 +25,7 @@ export async function listarObjetivos(req: Request, res: Response) {
         .select('monto_asignado')
         .eq('objetivo_id', o.id);
 
-      const monto_asignado = (asignaciones ?? []).reduce((suma, a) => suma + Number(a.monto_asignado), 0);
+      const monto_asignado = montoAsignado(asignaciones ?? []);
 
       return { ...o, monto_asignado, faltante: Number(o.monto_objetivo) - monto_asignado };
     })

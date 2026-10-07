@@ -26,6 +26,7 @@ const schema = z.object({
   notas: z.string().optional(),
   comision_retiro: numeroOpcional,
   cobra_gmf: z.boolean().optional(),
+  es_ahorro: z.boolean().optional(),
 })
 export type AccountFormValues = z.infer<typeof schema>
 
@@ -62,6 +63,7 @@ export function AccountForm({ cuenta, monedaDefault = 'COP', onSubmit, onCancel,
           notas: cuenta.notas ?? '',
           comision_retiro: cuenta.comision_retiro || '',
           cobra_gmf: cuenta.cobra_gmf ?? false,
+          es_ahorro: cuenta.es_ahorro ?? false,
         }
       : {
           moneda: monedaDefault,
@@ -136,6 +138,10 @@ export function AccountForm({ cuenta, monedaDefault = 'COP', onSubmit, onCancel,
         <label className="flex items-center gap-2 text-sm text-ink-200">
           <input type="checkbox" className="size-4 accent-violet-500" {...register('incluir_en_saldo_total')} />
           Incluir en el saldo total del dashboard
+        </label>
+        <label className="flex items-center gap-2 text-sm text-ink-200">
+          <input type="checkbox" className="size-4 accent-violet-500" {...register('es_ahorro')} />
+          Es una cuenta de ahorro (la usa el Simulador como "tus ahorros")
         </label>
       </div>
 

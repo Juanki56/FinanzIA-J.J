@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, Wallet, Receipt, ListChecks, ArrowLeftRight, Tags, Target, Trophy, Repeat, Link2,
+  LayoutDashboard, Wallet, Receipt, ListChecks, FlaskConical, ArrowLeftRight, Tags, Target, Trophy, Repeat, Link2,
 } from 'lucide-react'
 
 export const NAV_ITEMS = [
@@ -7,6 +7,7 @@ export const NAV_ITEMS = [
   { to: '/cuentas', label: 'Cuentas', icon: Wallet },
   { to: '/movimientos', label: 'Movimientos', icon: Receipt },
   { to: '/revisar', label: 'Revisar', icon: ListChecks },
+  { to: '/asistente', label: 'Simulador', icon: FlaskConical },
   { to: '/transferencias', label: 'Transferencias', icon: ArrowLeftRight },
   { to: '/categorias', label: 'Categorías', icon: Tags },
   { to: '/presupuestos', label: 'Presupuestos', icon: Target },

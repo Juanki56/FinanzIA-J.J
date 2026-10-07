@@ -23,6 +23,7 @@ export type NuevaCuentaInput = {
   notas?: string
   comision_retiro?: number
   cobra_gmf?: boolean
+  es_ahorro?: boolean
 }
 
 export function useCrearCuenta() {

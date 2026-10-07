@@ -55,6 +55,7 @@ export function AccountsPage() {
       notas: values.notas || undefined,
       comision_retiro: limpiarNumero(values.comision_retiro as number | '') ?? 0,
       cobra_gmf: values.cobra_gmf ?? false,
+      es_ahorro: values.es_ahorro ?? false,
     }
 
     if (editando) {

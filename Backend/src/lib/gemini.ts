@@ -1,7 +1,8 @@
-// Cliente mínimo para la API de Gemini (nivel gratuito), usado únicamente
-// para sugerir categoria_id de movimientos ya existentes — ver
-// services/categorizacionIA.service.ts para el flujo completo y la
-// minimización de datos.
+// Cliente mínimo para la API de Gemini (nivel gratuito). Lo usan dos casos de
+// uso separados, que solo comparten este archivo:
+// - services/categorizacionIA.service.ts: sugerir categoria_id de un movimiento.
+// - services/asistenteIA.service.ts: explicar en lenguaje natural un resultado
+//   que el simulador financiero YA calculó (la IA no calcula nada).
 //
 // ADVERTENCIA DE PRIVACIDAD (documentada aquí Y en el prompt original):
 // en el nivel gratuito de la API de Gemini, Google puede usar el contenido
@@ -10,13 +11,20 @@
 // "Used to improve our products: Yes" para el nivel gratuito de
 // gemini-3.5-flash-lite. El usuario decidió explícitamente no pagar y aceptar
 // esa condición. La mitigación real es la minimización de datos: nunca se
-// envía nada que identifique al usuario, ni montos exactos, ni el correo crudo.
+// envía nada que identifique al usuario ni el correo crudo. La categorización
+// manda solo rangos de monto; el asistente manda la pregunta del usuario,
+// cifras ya calculadas (totales, plazos), nombres de categorías y objetivos, y
+// los nombres de las cuentas usadas en esa simulación. Nunca la lista
+// completa de cuentas, comercios, ids ni tokens.
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
 
+// Sin esto una petición colgada dejaba el endpoint esperando para siempre.
+const TIMEOUT_MS = 20_000;
+
 export class GeminiNoConfiguradoError extends Error {
   constructor() {
-    super('Falta GEMINI_API_KEY en el .env — necesaria para sugerir categorías con IA.');
+    super('Falta GEMINI_API_KEY en el .env — necesaria para las funciones con IA.');
     this.name = 'GeminiNoConfiguradoError';
   }
 }
@@ -36,17 +44,17 @@ export interface RespuestaGemini {
 }
 
 /**
- * Llama a Gemini con un prompt que ya trae el payload minimizado embebido.
- * Devuelve la sugerencia parseada Y el JSON crudo de la respuesta (para
- * guardar en procesamientos_ia.resultado tal cual, sin reinterpretarlo).
+ * Llamada genérica: manda un prompt y devuelve el texto de la respuesta, el
+ * JSON crudo y el modelo usado. `json: true` pide respuesta en JSON.
  *
  * NO reintenta automáticamente en caso de 429 — el proyecto usa un nivel
  * gratuito con cuota limitada, y reintentar sin límite empeoraría el problema.
  * El caller decide qué hacer con GeminiLimiteExcedidoError.
  */
-export async function sugerirCategoriaConGemini(
-  prompt: string
-): Promise<{ sugerencia: RespuestaGemini; crudo: unknown; modelo: string }> {
+export async function llamarGemini(
+  prompt: string,
+  opciones: { json?: boolean } = {}
+): Promise<{ texto: string; crudo: unknown; modelo: string }> {
   if (!GEMINI_API_KEY) {
     throw new GeminiNoConfiguradoError();
   }
@@ -58,8 +66,9 @@ export async function sugerirCategoriaConGemini(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: 'application/json' },
+      ...(opciones.json ? { generationConfig: { responseMimeType: 'application/json' } } : {}),
     }),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
   });
 
   const body = await res.json();
@@ -82,6 +91,19 @@ export async function sugerirCategoriaConGemini(
     throw new Error('Gemini no devolvió el texto esperado en la respuesta');
   }
 
+  return { texto: textoRespuesta, crudo: body, modelo: GEMINI_MODEL };
+}
+
+/**
+ * Sugerencia de categoría: el prompt ya trae el payload minimizado embebido.
+ * Devuelve la sugerencia parseada Y el JSON crudo de la respuesta (para
+ * guardar en procesamientos_ia.resultado tal cual, sin reinterpretarlo).
+ */
+export async function sugerirCategoriaConGemini(
+  prompt: string
+): Promise<{ sugerencia: RespuestaGemini; crudo: unknown; modelo: string }> {
+  const { texto: textoRespuesta, crudo, modelo } = await llamarGemini(prompt, { json: true });
+
   let sugerencia: RespuestaGemini;
   try {
     const parseado = JSON.parse(textoRespuesta);
@@ -95,5 +117,5 @@ export async function sugerirCategoriaConGemini(
     sugerencia = { categoria_id: null, confianza: 0 };
   }
 
-  return { sugerencia, crudo: body, modelo: GEMINI_MODEL };
+  return { sugerencia, crudo, modelo };
 }

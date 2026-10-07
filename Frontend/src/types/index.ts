@@ -39,6 +39,8 @@ export interface Cuenta {
   comision_retiro?: number
   /** La cuenta no está exenta del 4x1000: cada salida paga el 0,4%. */
   cobra_gmf?: boolean
+  /** Cuenta de ahorro: el simulador la usa como "tus ahorros". */
+  es_ahorro?: boolean
   /** Pendientes que todavía no cuentan en saldo_actual (posteriores al último ajuste de saldo). Solo en el listado. */
   pendientes?: { cantidad: number; ingresos: number; gastos: number }
   /** Pendientes con fecha hasta aquí ya están cubiertos por el saldo (último ajuste o creación). Solo en el listado. */
@@ -207,3 +209,117 @@ export interface ResumenSincronizacion {
   sin_reconocer: number
 }
 
+/** Espejo de CodigoAdvertencia (Backend/src/services/simulacionFinanciera.ts). */
+export type AdvertenciaSimulacion =
+  | 'sin_fondos'
+  | 'ritmo_sin_datos'
+  | 'ritmo_no_positivo'
+  | 'gasto_supera_saldo'
+  | 'toca_objetivos'
+  | 'objetivo_vencido'
+  | 'sin_objetivos'
+  | 'hay_pendientes'
+
+export type RitmoSimulacion = { valor: number | null; fuente: 'usuario' | 'calculado' | 'ninguno'; meses_usados: number; calculado: number | null }
+
+/** Espejo de ResultadoGasto (Backend/src/services/simulacionFinanciera.ts). */
+export interface SimulacionGasto {
+  tipo: 'gasto'
+  fecha_calculo: string
+  parametros: { monto: number; plazo_meses: number | null; ahorro_mensual_usuario: number | null }
+  fondos: {
+    /** nombradas = las cuentas que elegiste; ahorro = tus cuentas de ahorro; todas = todo lo disponible. */
+    origen: 'nombradas' | 'ahorro' | 'todas'
+    cuentas: { nombre: string; saldo: number }[]
+    actual: number
+    despues: number
+    porcentaje_que_representa: number | null
+    alcanza: boolean
+    faltante: number
+  }
+  ritmo: RitmoSimulacion
+  recuperacion:{ meses: number; dias: number; fecha_estimada: string } | null
+  recuperacion_en_plazo: { plazo_meses: number; adicional_mensual: number; mensual_requerido: number | null } | null
+  objetivos: {
+    asignado_en_cuentas: number
+    libre_antes: number
+    toca_objetivos: boolean
+    monto_que_toca: number
+    lista: {
+      nombre: string
+      monto_objetivo: number
+      monto_asignado: number
+      faltante: number
+      fecha_objetivo: string | null
+      vencido: boolean
+    }[]
+  }
+  advertencias: AdvertenciaSimulacion[]
+  supuestos: string[]
+}
+
+/** Espejo de ResultadoProyeccionObjetivos (Backend/src/services/simulacionFinanciera.ts). */
+export interface ProyeccionObjetivos {
+  tipo: 'proyeccion_objetivos'
+  fecha_calculo: string
+  parametros: { ahorro_mensual_usuario: number | null }
+  ritmo: RitmoSimulacion
+  objetivos: {
+    nombre: string
+    monto_objetivo: number
+    monto_asignado: number
+    faltante: number
+    fecha_objetivo: string | null
+    meses_para_llegar: number | null
+    fecha_estimada: string | null
+    necesario_mensual: number | null
+    llega_a_tiempo: boolean | null
+    vencido: boolean
+  }[]
+  advertencias: AdvertenciaSimulacion[]
+  supuestos: string[]
+}
+
+/** Espejo de ResultadoResumenFinanciero (Backend/src/services/simulacionFinanciera.ts). */
+export interface ResumenFinanciero {
+  tipo: 'resumen_financiero'
+  fecha_calculo: string
+  saldos: {
+    disponible: number
+    ahorro: number
+    deudas: number
+    cuentas: { nombre: string; saldo: number; es_ahorro: boolean; es_pasivo: boolean }[]
+  }
+  meses: { mes: string; en_curso: boolean; ingresos: number; gastos: number; balance: number; pendientes: number }[]
+  categorias_mes_actual: { categoria: string; gasto: number }[]
+  categorias_periodo: { categoria: string; gasto: number }[]
+  ritmo: RitmoSimulacion
+  objetivos: { nombre: string; monto_objetivo: number; monto_asignado: number; faltante: number; fecha_objetivo: string | null }[]
+  advertencias: AdvertenciaSimulacion[]
+  supuestos: string[]
+}
+
+export type ResultadoAsistente = SimulacionGasto | ProyeccionObjetivos | ResumenFinanciero
+
+export interface ExplicacionIA {
+  explicacion: { texto: string; modelo: string } | null
+  explicacion_error: string | null
+}
+
+export interface RespuestaSimulacion<T> extends ExplicacionIA {
+  simulacion: T
+}
+
+export interface RespuestaPregunta extends ExplicacionIA {
+  herramienta: 'simular_gasto' | 'proyeccion_objetivos' | 'resumen_financiero' | 'fuera_de_alcance'
+  parametros: {
+    monto: number | null
+    plazo_meses: number | null
+    ahorro_mensual: number | null
+    cuentas?: string[]
+    todas_las_cuentas?: boolean
+  } | null
+  /** Si viene, no hubo cálculo: hay que responderle esto al usuario (falta un dato o está fuera de alcance). */
+  aclaracion: string | null
+  resultado: ResultadoAsistente | null
+}
