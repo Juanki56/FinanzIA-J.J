@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import { motion } from 'framer-motion'
-import { Gamepad2 } from 'lucide-react'
 
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
@@ -12,9 +11,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           className="hidden flex-col justify-between bg-gradient-to-br from-violet-600/40 via-bg-raised to-cyan-600/20 p-8 md:flex"
         >
           <div className="flex items-center gap-2.5">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 shadow-[var(--shadow-glow-violet)]">
-              <Gamepad2 className="size-5 text-white" />
-            </div>
+            <img src="/icon-192.png" alt="" className="size-10" />
             <span className="font-display text-2xl text-gradient">FinanzIA</span>
           </div>
           <div>

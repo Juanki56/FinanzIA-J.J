@@ -1,15 +1,12 @@
 import { NavLink } from 'react-router-dom'
 import { clsx } from 'clsx'
-import { Gamepad2 } from 'lucide-react'
 import { NAV_ITEMS } from './navItems'
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col gap-6 p-5">
       <div className="flex items-center gap-2.5 px-1">
-        <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 shadow-[var(--shadow-glow-violet)]">
-          <Gamepad2 className="size-5 text-white" />
-        </div>
+        <img src="/icon-192.png" alt="" className="size-9" />
         <span className="font-display text-xl text-gradient">FinanzIA</span>
       </div>
 
