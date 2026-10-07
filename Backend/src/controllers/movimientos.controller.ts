@@ -6,6 +6,8 @@ import { descripcionGmf, PREFIJO_DESCRIPCION_GMF, TASA_GMF } from '../services/s
 const TIPOS_VALIDOS = ['income', 'expense', 'adjustment'];
 const ESTADOS_VALIDOS = ['pending', 'confirmed', 'cancelled'];
 
+const DESCRIPCION_POR_TIPO = { income: 'Ingreso', expense: 'Gasto', adjustment: 'Ajuste de saldo' } as const;
+
 /** Lo único que PATCH /movimientos/:id deja cambiar (eliminar va por DELETE, transferencias por su endpoint). */
 const CAMPOS_EDITABLES = [
   'cuenta_id', 'categoria_id', 'tipo', 'monto', 'signo',
@@ -118,7 +120,12 @@ export async function crearMovimiento(req: Request, res: Response) {
 
   if (categoria_id !== undefined) nuevoMovimiento.categoria_id = categoria_id;
   if (tipo === 'adjustment') nuevoMovimiento.signo = signo;
-  if (descripcion !== undefined) nuevoMovimiento.descripcion = descripcion;
+  // movimientos.descripcion es NOT NULL: sin descripción el insert fallaba con
+  // 23502 (el mismo problema que tenían las transferencias). Si viene vacía se
+  // usa el comercio o, si tampoco hay, el tipo de movimiento.
+  const descripcionLimpia = typeof descripcion === 'string' ? descripcion.trim() : '';
+  const comercioLimpio = typeof comercio === 'string' ? comercio.trim() : '';
+  nuevoMovimiento.descripcion = descripcionLimpia || comercioLimpio || DESCRIPCION_POR_TIPO[tipo as 'income' | 'expense' | 'adjustment'];
   if (comercio !== undefined) nuevoMovimiento.comercio = comercio;
   if (fecha_movimiento !== undefined) nuevoMovimiento.fecha_movimiento = fecha_movimiento;
   // Registrado a mano desde un correo que el parser no reconoció (bandeja de
