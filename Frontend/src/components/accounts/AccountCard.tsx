@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
-import { Archive, Clock, Pencil } from 'lucide-react'
+import { Archive, Clock, Pencil, Scale } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { formatCurrency } from '@/utils/currency'
@@ -11,9 +11,10 @@ interface AccountCardProps {
   cuenta: Cuenta
   onEdit: () => void
   onArchive: () => void
+  onCuadrar: () => void
 }
 
-export function AccountCard({ cuenta, onEdit, onArchive }: AccountCardProps) {
+export function AccountCard({ cuenta, onEdit, onArchive, onCuadrar }: AccountCardProps) {
   const meta = CUENTA_TIPO_META[cuenta.tipo]
   const Icon = meta.icon
 
@@ -57,6 +58,16 @@ export function AccountCard({ cuenta, onEdit, onArchive }: AccountCardProps) {
         <div className="mt-4 flex items-center justify-between">
           <Badge tone={cuenta.es_pasivo ? 'coral' : 'cyan'}>{meta.label}</Badge>
           <div className="flex gap-1">
+            {cuenta.activa && (
+              <button
+                onClick={onCuadrar}
+                className="rounded-lg p-2 text-ink-400 hover:bg-white/8 hover:text-ink-100"
+                aria-label="Cuadrar con el banco"
+                title="Cuadrar con el banco"
+              >
+                <Scale className="size-4" />
+              </button>
+            )}
             <button
               onClick={onEdit}
               className="rounded-lg p-2 text-ink-400 hover:bg-white/8 hover:text-ink-100"

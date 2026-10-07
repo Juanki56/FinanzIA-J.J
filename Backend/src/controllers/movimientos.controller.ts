@@ -54,6 +54,14 @@ export async function listarMovimientos(req: Request, res: Response) {
     query = query.eq(campo, valor);
   }
 
+  // ?revision=true: lo que necesita atención en la pantalla Revisar — ingresos
+  // y gastos pendientes de confirmar, o confirmados que no tienen categoría.
+  if (req.query.revision === 'true') {
+    query = query
+      .in('tipo', ['income', 'expense'])
+      .or('estado.eq.pending,and(estado.eq.confirmed,categoria_id.is.null)');
+  }
+
   const { data, error, count } = await query;
 
   if (error) {
@@ -231,6 +239,59 @@ async function recalcularGmf(
   if (errorGmf) {
     console.error(`[movimientos] no se pudo recalcular el 4x1000 del movimiento ${movimiento.id}:`, errorGmf.message);
   }
+}
+
+const MAX_LOTE = 200;
+
+/**
+ * POST /api/movimientos/lote — { ids, cambios: { categoria_id?, estado? } }.
+ * Para la pantalla Revisar: categorizar o confirmar varios de una vez. Solo
+ * ingresos y gastos (transferencias y ajustes tienen sus propias reglas), y
+ * con los mismos efectos que editarlos uno por uno.
+ */
+export async function actualizarMovimientosEnLote(req: Request, res: Response) {
+  const { ids, cambios } = req.body ?? {};
+
+  if (!Array.isArray(ids) || ids.length === 0 || ids.length > MAX_LOTE || !ids.every((i) => typeof i === 'string')) {
+    return res.status(400).json({ error: `ids debe ser una lista de 1 a ${MAX_LOTE} ids` });
+  }
+  if (typeof cambios !== 'object' || cambios === null) {
+    return res.status(400).json({ error: 'cambios es obligatorio' });
+  }
+
+  const noPermitidos = Object.keys(cambios).filter((c) => c !== 'categoria_id' && c !== 'estado');
+  if (noPermitidos.length > 0 || Object.keys(cambios).length === 0) {
+    return res.status(400).json({ error: 'En lote solo se puede cambiar categoria_id y/o estado' });
+  }
+  if ('categoria_id' in cambios && cambios.categoria_id !== null && typeof cambios.categoria_id !== 'string') {
+    return res.status(400).json({ error: 'categoria_id debe ser un id o null' });
+  }
+  if ('estado' in cambios && !ESTADOS_VALIDOS.includes(cambios.estado)) {
+    return res.status(400).json({ error: `estado debe ser uno de: ${ESTADOS_VALIDOS.join(', ')}` });
+  }
+
+  const actualizacion: Record<string, unknown> = { ...cambios };
+  if ('estado' in cambios && cambios.estado !== 'pending') actualizacion.requiere_revision = false;
+
+  const { data, error } = await req.supabase
+    .from('movimientos')
+    .update(actualizacion)
+    .in('id', ids)
+    .in('tipo', ['income', 'expense'])
+    .eq('eliminado', false)
+    .select();
+
+  if (error) {
+    return res.status(500).json({ error: 'Error al actualizar los movimientos', detalle: error.message });
+  }
+
+  if ('estado' in cambios) {
+    for (const movimiento of data) {
+      await propagarACobros(req, movimiento, { estado: cambios.estado });
+    }
+  }
+
+  res.json({ actualizados: data.length });
 }
 
 /**

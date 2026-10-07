@@ -59,7 +59,10 @@ export async function listarCuentas(req: Request, res: Response) {
       if (m.tipo === 'income') pendientes.ingresos += Number(m.monto);
       else pendientes.gastos += Number(m.monto);
     }
-    return { ...cuenta, pendientes };
+    // Pendientes con fecha <= pendientes_desde ya están cubiertos por el saldo
+    // (ajuste o saldo inicial): la pantalla Revisar no deja confirmarlos.
+    const pendientesDesde = new Date(corte.get(cuenta.id) ?? 0).toISOString();
+    return { ...cuenta, pendientes, pendientes_desde: pendientesDesde };
   });
 
   res.json({ cuentas });

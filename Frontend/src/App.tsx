@@ -5,6 +5,7 @@ import { RequireAuth } from '@/components/layout/RequireAuth'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { AccountsPage } from '@/pages/AccountsPage'
 import { MovementsPage } from '@/pages/MovementsPage'
+import { ReviewPage } from '@/pages/ReviewPage'
 import { TransfersPage } from '@/pages/TransfersPage'
 import { CategoriesPage } from '@/pages/CategoriesPage'
 import { CategoryDetailPage } from '@/pages/CategoryDetailPage'
@@ -27,6 +28,7 @@ function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/cuentas" element={<AccountsPage />} />
         <Route path="/movimientos" element={<MovementsPage />} />
+        <Route path="/revisar" element={<ReviewPage />} />
         <Route path="/transferencias" element={<TransfersPage />} />
         <Route path="/categorias" element={<CategoriesPage />} />
         <Route path="/categorias/:id" element={<CategoryDetailPage />} />

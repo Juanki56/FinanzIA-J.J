@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { AccountCard } from '@/components/accounts/AccountCard'
 import { AccountForm, type AccountFormValues } from '@/components/accounts/AccountForm'
+import { ReconcileModal } from '@/components/accounts/ReconcileModal'
 import { useActualizarCuenta, useAjustarSaldoCuenta, useCrearCuenta, useCuentas, type EditarCuentaInput, type NuevaCuentaInput } from '@/hooks/useCuentas'
 import { useMe } from '@/hooks/useMe'
 import { notifyError, notifySuccess } from '@/utils/toast'
@@ -27,6 +28,7 @@ export function AccountsPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editando, setEditando] = useState<Cuenta | null>(null)
   const [archivando, setArchivando] = useState<Cuenta | null>(null)
+  const [cuadrando, setCuadrando] = useState<Cuenta | null>(null)
   const [verArchivadas, setVerArchivadas] = useState(false)
 
   function abrirCrear() {
@@ -157,6 +159,7 @@ export function AccountsPage() {
                 cuenta={cuenta}
                 onEdit={() => abrirEditar(cuenta)}
                 onArchive={() => setArchivando(cuenta)}
+                onCuadrar={() => setCuadrando(cuenta)}
               />
             ))}
           </div>
@@ -184,6 +187,8 @@ export function AccountsPage() {
           submitting={crear.isPending || actualizar.isPending || ajustarSaldo.isPending}
         />
       </Modal>
+
+      <ReconcileModal cuenta={cuadrando} onClose={() => setCuadrando(null)} />
 
       <ConfirmDialog
         open={!!archivando}

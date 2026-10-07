@@ -101,6 +101,27 @@ export function useCrearMovimiento() {
   })
 }
 
+/** Lo que necesita atención: pendientes de confirmar o confirmados sin categoría (pantalla Revisar). */
+export function useMovimientosRevision() {
+  return useQuery({
+    queryKey: ['movimientos', 'revision'],
+    queryFn: () =>
+      api
+        .get<MovimientosPage>(`/movimientos?revision=true&limite=${LIMITE_MAXIMO_MOVIMIENTOS}`)
+        .then((r) => ({ movimientos: r.movimientos, total: r.paginacion.total })),
+  })
+}
+
+/** Categoriza y/o confirma varios movimientos de una vez. */
+export function useActualizarMovimientosEnLote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { ids: string[]; cambios: { categoria_id?: string | null; estado?: Movimiento['estado'] } }) =>
+      api.post<{ actualizados: number }>('/movimientos/lote', input),
+    onSuccess: () => invalidateSaldos(qc),
+  })
+}
+
 /** Lo mismo que el backend acepta en PATCH (ver CAMPOS_EDITABLES en movimientos.controller). */
 export type EditarMovimientoInput = Partial<
   Omit<NuevoMovimientoInput, 'signo' | 'fuente_movimiento_id'> & { signo: 1 | -1 }

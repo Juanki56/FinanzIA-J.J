@@ -41,6 +41,8 @@ export interface Cuenta {
   cobra_gmf?: boolean
   /** Pendientes que todavía no cuentan en saldo_actual (posteriores al último ajuste de saldo). Solo en el listado. */
   pendientes?: { cantidad: number; ingresos: number; gastos: number }
+  /** Pendientes con fecha hasta aquí ya están cubiertos por el saldo (último ajuste o creación). Solo en el listado. */
+  pendientes_desde?: string
 }
 
 export type TipoMovimiento = 'income' | 'expense' | 'adjustment' | 'transfer'
@@ -204,3 +206,4 @@ export interface ResumenSincronizacion {
   movimientos_creados: number
   sin_reconocer: number
 }
+
