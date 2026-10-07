@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Pencil, Trash2, Trophy } from 'lucide-react'
+import { Pencil, Plus, Trash2, Trophy } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { Badge } from '@/components/ui/Badge'
@@ -73,6 +73,18 @@ export function GoalCard({ objetivo, moneda = 'COP', onEdit, onDelete }: GoalCar
           <Badge tone={estadoMeta.tone}>{estadoMeta.label}</Badge>
           {!completado && <span className="text-xs text-ink-500">Faltan {formatCurrency(Math.max(objetivo.faltante, 0), moneda)}</span>}
         </div>
+
+        {!completado && (
+          // Abre el detalle con "Nueva asignación" ya abierta: antes había que
+          // descubrir que se entraba tocando el nombre.
+          <Link
+            to={`/objetivos/${objetivo.id}?asignar=1`}
+            className="mt-3 flex items-center justify-center gap-1.5 rounded-xl bg-violet-500/15 py-2 text-sm font-semibold text-violet-200 ring-1 ring-violet-500/30 hover:bg-violet-500/25"
+          >
+            <Plus className="size-4" />
+            Asignar plata
+          </Link>
+        )}
       </Card>
     </motion.div>
   )

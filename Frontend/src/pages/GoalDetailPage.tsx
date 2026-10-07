@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Pencil, Plus, Trash2, Trophy, Wallet } from 'lucide-react'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
@@ -39,8 +39,15 @@ export function GoalDetailPage() {
   const actualizarAsignacion = useActualizarAsignacion(id ?? '')
   const eliminarAsignacion = useEliminarAsignacion(id ?? '')
 
-  const [modalOpen, setModalOpen] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  // ?asignar=1 (botón "Asignar plata" de la tarjeta): llega con el modal abierto.
+  const [modalOpen, setModalOpen] = useState(() => searchParams.get('asignar') === '1')
   const [editando, setEditando] = useState<AsignacionObjetivo | null>(null)
+
+  // Se quita el parámetro para que recargar la página no vuelva a abrir el modal.
+  useEffect(() => {
+    if (searchParams.has('asignar')) setSearchParams({}, { replace: true })
+  }, [searchParams, setSearchParams])
   const [eliminando, setEliminando] = useState<AsignacionObjetivo | null>(null)
 
   const objetivo = objetivos?.find((o) => o.id === id)
